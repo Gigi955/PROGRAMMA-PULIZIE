@@ -1,13 +1,13 @@
 const CACHE = "pulizie-v2";
 const ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/libs/xlsx.full.min.js",
-  "/libs/jspdf.umd.min.js",
-  "/libs/jspdf.plugin.autotable.min.js"
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./libs/xlsx.full.min.js",
+  "./libs/jspdf.umd.min.js",
+  "./libs/jspdf.plugin.autotable.min.js"
 ];
 
 self.addEventListener("install", e => {

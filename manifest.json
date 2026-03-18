@@ -2,7 +2,7 @@
   "name": "Piano di Pulizie",
   "short_name": "Pulizie",
   "description": "Programma di pulizie con rotazione automatica per 15 persone e 8 compiti",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FAF6EF",
   "theme_color": "#2C1A0E",
@@ -29,7 +29,7 @@
       "name": "Nuovo Piano",
       "short_name": "Nuovo",
       "description": "Crea un nuovo piano di pulizie",
-      "url": "/index.html"
+      "url": "./index.html"
     }
   ]
 }
