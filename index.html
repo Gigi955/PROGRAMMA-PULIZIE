@@ -255,7 +255,8 @@ let state = {
   schedule: null,
   view: "table",
   selPerson: 0,
-  fontSize: 11
+  fontSize: 11,
+  tablePage: 0
 };
 
 // ─── PERSISTENZA localStorage ─────────────────────────────────────────────────
@@ -508,7 +509,19 @@ const views = {
         </div>
       </div>
 
-      ${s.view === 'table' ? renderTable(names, tasks, sch, fs) : renderPersonView(names, tasks, sch)}
+      ${s.view === 'table' ? (() => {
+        const PAGE = 2;
+        const totalPages = Math.ceil(sch.length / PAGE);
+        const page = Math.min(s.tablePage || 0, totalPages - 1);
+        const schPage = sch.slice(page * PAGE, page * PAGE + PAGE);
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px 2px">
+            <button class="btn-secondary" id="btn-tbl-prev" ${page === 0 ? 'disabled style="opacity:.35"' : ''} style="padding:4px 12px;font-size:13px">‹</button>
+            <span style="font-size:12px;color:#8A6A50">${page + 1} / ${totalPages}</span>
+            <button class="btn-secondary" id="btn-tbl-next" ${page >= totalPages - 1 ? 'disabled style="opacity:.35"' : ''} style="padding:4px 12px;font-size:13px">›</button>
+          </div>
+          ${renderTable(names, tasks, schPage, fs)}`;
+      })() : renderPersonView(names, tasks, sch)}
 
     </div>`;
   }
@@ -963,6 +976,8 @@ function attachEvents() {
   on("btn-img",          exportImage);
   on("vt-table",         () => { state.view = "table";   render(); });
   on("vt-persona",       () => { state.view = "persona"; render(); });
+  on("btn-tbl-prev", () => { if (state.tablePage > 0) { state.tablePage--; render(); } });
+  on("btn-tbl-next", () => { const total = Math.ceil(state.schedule.length / 2); if (state.tablePage < total - 1) { state.tablePage++; render(); } });
 
   on("btn-font-minus", () => {
     if (state.fontSize > 8) {
