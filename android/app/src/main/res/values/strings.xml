@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Piano di Pulizie</string>
+    <string name="title_activity_main">Piano di Pulizie</string>
+    <string name="package_name">com.pianodicasa.pulizie</string>
+    <string name="custom_url_scheme">com.pianodicasa.pulizie</string>
+</resources>
