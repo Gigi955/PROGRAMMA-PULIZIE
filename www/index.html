@@ -1200,8 +1200,8 @@ async function downloadPDF() {
     PAGE_W / 2, 14, { align: 'center' }
   );
 
-  // PDF paginato: 3 sessioni per pagina
-  const SESSIONS_PER_PAGE = 3;
+  // PDF paginato: 2 sessioni per pagina
+  const SESSIONS_PER_PAGE = 2;
 
   const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
                    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -1244,8 +1244,8 @@ async function downloadPDF() {
       ];
     });
 
-    const taskColW = 30;
-    const sesColW  = 30;
+    const taskColW = 40;
+    const sesColW  = 80;
     const nSes     = pageSch.length;
     const tableW   = taskColW + sesColW * nSes;
     const marginLR = Math.max(5, Math.round((210 - tableW) / 2));
@@ -1254,7 +1254,7 @@ async function downloadPDF() {
 
     doc.autoTable({
       head, body, startY: 18,
-      styles: { fontSize: 10, cellPadding: [2, 3], valign: 'middle', overflow: 'linebreak' },
+      styles: { fontSize: 11, cellPadding: [3, 4], valign: 'middle', overflow: 'linebreak' },
       headStyles: { fillColor: [44, 26, 14], textColor: [200, 168, 130], fontSize: 11, halign: 'center' },
       columnStyles: colStyles,
       didParseCell: (data) => {
