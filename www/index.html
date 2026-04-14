@@ -487,6 +487,7 @@ const views = {
           <button class="btn-secondary btn-green" id="btn-excel">📊 Excel</button>
           <button class="btn-primary" id="btn-pdf">📤 PDF</button>
           <button class="btn-primary" id="btn-img" style="background:#5A7A9A">🖼️ Immagine</button>
+          <button class="btn-primary" id="btn-html" style="background:#4A7A4A">🗂️ HTML</button>
         </div>
       </div>
 
@@ -974,6 +975,7 @@ function attachEvents() {
   on("btn-excel",        exportXLSX);
   on("btn-pdf",          downloadPDF);
   on("btn-img",          exportImage);
+  on("btn-html",         exportHTML);
   on("vt-table",         () => { state.view = "table";   render(); });
   on("vt-persona",       () => { state.view = "persona"; render(); });
   on("btn-tbl-prev", () => { if (state.tablePage > 0) { state.tablePage--; render(); } });
@@ -1201,25 +1203,8 @@ async function downloadPDF() {
   const { jsPDF } = window.jspdf;
   const names = effNames(), tasks = effTasks(), sch = state.schedule;
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const PAGE_W = 210;
-
-  // Titolo
-  doc.setFontSize(13);
-  doc.setTextColor(44, 26, 14);
-  doc.text('Piano di Pulizie', PAGE_W / 2, 9, { align: 'center' });
-  doc.setFontSize(7);
-  doc.setTextColor(100, 100, 100);
-  doc.text(
-    `${state.nPeople} persone  |  Mercoledi e Domenica  |  ${sch.length} sessioni  |  Dal ${fmtDate(sch[0].date)}`,
-    PAGE_W / 2, 14, { align: 'center' }
-  );
-
-  // PDF paginato: 2 sessioni per pagina
-  const SESSIONS_PER_PAGE = 2;
-
-  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
-                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+  const PAGE_W = 148;
 
   // Converte colore hex in [r,g,b]
   function hexToRgb(hex) {
@@ -1229,19 +1214,31 @@ async function downloadPDF() {
       parseInt(hex.slice(5,7), 16)
     ];
   }
+  // Sfondo tenue: 13% del colore su bianco
+  function hexToRgbLight(hex) {
+    const [r,g,b] = hexToRgb(hex);
+    const t = 0.13;
+    return [Math.round(255-(255-r)*t), Math.round(255-(255-g)*t), Math.round(255-(255-b)*t)];
+  }
+
+  // PDF paginato: 2 sessioni per pagina
+  const SESSIONS_PER_PAGE = 2;
+
+  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
   for (let pageIdx = 0; pageIdx < sch.length; pageIdx += SESSIONS_PER_PAGE) {
     const pageSch = sch.slice(pageIdx, pageIdx + SESSIONS_PER_PAGE);
     if (pageIdx > 0) doc.addPage();
 
     // Titolo pagina
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     doc.setTextColor(44, 26, 14);
-    doc.text('Piano di Pulizie', 105, 9, { align: 'center' });
-    doc.setFontSize(7);
+    doc.text('Piano di Pulizie', PAGE_W / 2, 8, { align: 'center' });
+    doc.setFontSize(6);
     doc.setTextColor(100, 100, 100);
     const pageLabel = pageSch.map(s => `${s.dayName} ${fmtDate(s.date)}`).join(' — ');
-    doc.text(`${state.nPeople} persone  |  ${pageLabel}`, 105, 14, { align: 'center' });
+    doc.text(`${state.nPeople} persone  |  ${pageLabel}`, PAGE_W / 2, 13, { align: 'center' });
 
     // Intestazioni colonne
     const head = [['Compito', ...pageSch.map(s => `${s.dayName}\n${s.date.getDate()} ${MESI_IT[s.date.getMonth()]}`)]];
@@ -1259,26 +1256,27 @@ async function downloadPDF() {
       ];
     });
 
-    const marginLR = 10;
-    const taskColW = 50;
+    const marginLR = 8;
+    const taskColW = 38;
     const nSes     = pageSch.length;
     const sesColW  = Math.floor((PAGE_W - 2 * marginLR - taskColW) / nSes);
     const colStyles = { 0: { cellWidth: taskColW, fontStyle: 'bold', halign: 'left' } };
     for (let ci = 1; ci <= nSes; ci++) colStyles[ci] = { cellWidth: sesColW, halign: 'center' };
 
     doc.autoTable({
-      head, body, startY: 18,
-      styles: { fontSize: 11, cellPadding: [3, 4], valign: 'middle', overflow: 'linebreak' },
-      headStyles: { fillColor: [44, 26, 14], textColor: [200, 168, 130], fontSize: 11, halign: 'center' },
+      head, body, startY: 16,
+      styles: { fontSize: 9, cellPadding: [2, 3], valign: 'middle', overflow: 'linebreak' },
+      headStyles: { fillColor: [44, 26, 14], textColor: [200, 168, 130], fontSize: 9, halign: 'center' },
       columnStyles: colStyles,
       didParseCell: (data) => {
         if (data.section === 'body') {
-          const c = hexToRgb(TASK_COLORS[data.row.index] || '#333333');
-          data.cell.styles.textColor = c;
+          const col = TASK_COLORS[data.row.index] || '#333333';
+          data.cell.styles.textColor = hexToRgb(col);
+          data.cell.styles.fillColor = hexToRgbLight(col);
           if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
         }
       },
-      margin: { top: 18, left: marginLR, right: marginLR },
+      margin: { top: 16, left: marginLR, right: marginLR },
     });
   }
 
@@ -1312,6 +1310,64 @@ async function exportImage() {
   } catch(e) {
     alert('Errore durante la creazione dell\'immagine: ' + e.message);
   }
+}
+
+// ─── EXPORT HTML TABELLA COLORATA ────────────────────────────────────────────
+async function exportHTML() {
+  const names = effNames(), tasks = effTasks(), sch = state.schedule;
+  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  // Intestazione colonne sessioni
+  const sesHeaders = sch.map(s =>
+    `<th style="background:#2C1A0E;color:#C8A882;padding:6px 8px;text-align:center;white-space:nowrap">
+      ${s.dayName}<br>${s.date.getDate()} ${MESI_IT[s.date.getMonth()]}
+    </th>`
+  ).join('');
+
+  // Righe compiti
+  const rows = TASK_DEFS.map((td, ti) => {
+    const col = TASK_COLORS[ti] || '#333333';
+    const bgHex = col + '22';
+    const cells = sch.map(s => {
+      if (!s.isSunday && td.sunOnly) return `<td style="background:${bgHex};color:${col};padding:5px 8px;text-align:center">—</td>`;
+      const persons = (s.assignments[ti] || []).map(pi => names[pi]);
+      const txt = persons.length ? persons.join('<br>') : '—';
+      return `<td style="background:${bgHex};color:${col};padding:5px 8px;text-align:center">${txt}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="background:${bgHex};color:${col};padding:5px 8px;font-weight:bold;white-space:nowrap">${tasks[ti]}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="UTF-8"><title>Piano di Pulizie</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 16px; background: #FAF6EF; }
+  h2 { color: #2C1A0E; margin-bottom: 4px; }
+  p { color: #8A6A50; font-size: 12px; margin-top: 0; }
+  table { border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #E8DDD0; }
+</style>
+</head>
+<body>
+<h2>Piano di Pulizie</h2>
+<p>${state.nPeople} persone &middot; ${sch.length} sessioni &middot; dal ${fmtDate(sch[0].date)}</p>
+<table>
+  <thead>
+    <tr>
+      <th style="background:#2C1A0E;color:#C8A882;padding:6px 8px;text-align:left">Compito</th>
+      ${sesHeaders}
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  await shareOrDownload(blob, 'piano_pulizie.html');
 }
 
 // ─── EXPORT / IMPORT NOMI ────────────────────────────────────────────────────
