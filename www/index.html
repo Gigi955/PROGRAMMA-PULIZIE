@@ -104,9 +104,9 @@
     }
     table { border-collapse: collapse; width: 100%; background: #fff; }
     thead tr { background: #2C1A0E; }
-    th { padding: 10px 6px; color: #C8A882; font-weight: 700; font-size: 10px; text-align: center; white-space: nowrap; }
+    th { padding: 6px 3px; color: #C8A882; font-weight: 700; font-size: 10px; text-align: center; white-space: nowrap; }
     th.left { text-align: left; }
-    td { padding: 7px 4px; text-align: center; border-bottom: 1px solid #F0E8DC; }
+    td { padding: 4px 2px; text-align: center; border-bottom: 1px solid #F0E8DC; }
     tr:nth-child(even) td { background: #FAF6EF; }
     .cell-empty { color: #D8CCBC; }
     /* Sticky prima colonna header */
@@ -732,9 +732,9 @@ function renderTable(names, tasks, sch, fs) {
   return `<div class="table-wrap" style="font-size:${fontSize}px">
     <table>
       <thead><tr>
-        <th class="left" style="min-width:130px;width:130px;padding:10px 8px;font-size:${Math.max(8, fontSize - 1)}px">Compito</th>
+        <th class="left" style="min-width:110px;width:110px;padding:6px 6px;font-size:${Math.max(8, fontSize - 1)}px">Compito</th>
         ${sch.map(s => `
-          <th style="padding:8px 4px;min-width:${fontSize * 6}px;font-size:${Math.max(8, fontSize - 1)}px">
+          <th style="padding:6px 2px;min-width:${fontSize * 4.5}px;font-size:${Math.max(8, fontSize - 1)}px">
             <div style="opacity:.8">${s.dayName.slice(0, 3).toUpperCase()}</div>
             <div>${fmtDateShort(s.date)}</div>
           </th>`).join('')}
@@ -743,7 +743,7 @@ function renderTable(names, tasks, sch, fs) {
         ${TASK_DEFS.map((td, ti) => {
           const col = TASK_COLORS[ti];
           return `<tr>
-            <td style="text-align:left;padding:6px 8px;min-width:130px;width:130px">
+            <td style="text-align:left;padding:4px 6px;min-width:110px;width:110px">
               <div style="display:flex;align-items:flex-start;gap:5px">
                 <span style="flex-shrink:0;display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-top:3px"></span>
                 <span style="font-weight:700;color:${col}">${escHtml(tasks[ti])}</span>
