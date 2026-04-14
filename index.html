@@ -1259,11 +1259,10 @@ async function downloadPDF() {
       ];
     });
 
-    const taskColW = 40;
-    const sesColW  = 80;
+    const marginLR = 10;
+    const taskColW = 50;
     const nSes     = pageSch.length;
-    const tableW   = taskColW + sesColW * nSes;
-    const marginLR = Math.max(5, Math.round((210 - tableW) / 2));
+    const sesColW  = Math.floor((PAGE_W - 2 * marginLR - taskColW) / nSes);
     const colStyles = { 0: { cellWidth: taskColW, fontStyle: 'bold', halign: 'left' } };
     for (let ci = 1; ci <= nSes; ci++) colStyles[ci] = { cellWidth: sesColW, halign: 'center' };
 
