@@ -440,7 +440,7 @@ const views = {
             Domenica: uno dei 2 di <em>Sala&amp;Stanze</em> lava anche gli <em>Stracci</em>.
           </p>
           <div class="stats-row">
-            <div class="stat-box"><div class="stat-num">10–20</div><div class="stat-label">Persone</div></div>
+            <div class="stat-box"><div class="stat-num">10–30</div><div class="stat-label">Persone</div></div>
             <div class="stat-box"><div class="stat-num">8</div><div class="stat-label">Compiti</div></div>
             <div class="stat-box"><div class="stat-num">Mer+Dom</div><div class="stat-label">Sessioni</div></div>
           </div>
@@ -547,7 +547,7 @@ function renderStep1Form() {
       <button class="counter-btn" id="btn-np-minus">−</button>
       <span class="counter-val" id="np-val">${state.nPeople}</span>
       <button class="counter-btn" id="btn-np-plus">+</button>
-      <span style="font-size:12px;color:#8A6A50">min 10 · max 20</span>
+      <span style="font-size:12px;color:#8A6A50">min 10 · max 30</span>
     </div>
 
     <label class="label">Settimane da pianificare</label>
@@ -916,7 +916,7 @@ function showGuide() {
       </div>
 
       <div style="text-align:center;margin-top:8px">
-        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 2.7</p>
+        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 2.8</p>
         <button onclick="document.getElementById('guide-overlay').remove()"
           class="btn-primary">Ho capito ✓</button>
       </div>
@@ -1008,7 +1008,7 @@ function attachEvents() {
     }
   });
   on("btn-np-plus", () => {
-    if (state.nPeople < 20) {
+    if (state.nPeople < 30) {
       state.nPeople++;
       const el = document.getElementById("np-val");
       if (el) el.textContent = state.nPeople;
