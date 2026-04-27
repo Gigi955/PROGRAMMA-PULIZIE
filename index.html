@@ -251,6 +251,7 @@ let state = {
   day1: 3,               // giorno "normale" (3=Mercoledì)
   day2: 0,               // giorno "speciale" con Sala&Stanze (0=Domenica)
   neverTogether: [[-1, -1]], // array di coppie [persA, persB] mai insieme (-1=nessuno)
+  alwaysTogether: [[-1, -1]], // array di coppie [persA, persB] sempre insieme stesso giorno
   taskExclusions: {},    // { personIdx: [taskIdx,...] }
   schedule: null,
   view: "table",
@@ -272,6 +273,7 @@ function saveState() {
       day1: state.day1,
       day2: state.day2,
       neverTogether: state.neverTogether,
+      alwaysTogether: state.alwaysTogether,
       taskExclusions: state.taskExclusions
     }));
   } catch(e) {}
@@ -294,6 +296,13 @@ function loadState() {
         state.neverTogether = [s.neverTogether]; // retrocompatibilità formato vecchio
       } else if (s.neverTogether.length > 0 && Array.isArray(s.neverTogether[0])) {
         state.neverTogether = s.neverTogether;
+      }
+    }
+    if (Array.isArray(s.alwaysTogether)) {
+      if (s.alwaysTogether.length === 2 && typeof s.alwaysTogether[0] === 'number') {
+        state.alwaysTogether = [s.alwaysTogether];
+      } else if (s.alwaysTogether.length > 0 && Array.isArray(s.alwaysTogether[0])) {
+        state.alwaysTogether = s.alwaysTogether;
       }
     }
     if (s.taskExclusions && typeof s.taskExclusions === 'object') state.taskExclusions = s.taskExclusions;
@@ -325,8 +334,21 @@ function getDatePool(startStr, numWeeks) {
 
 // ─── ALGORITMO ───────────────────────────────────────────────────────────────
 function buildSchedule(N, names, dates) {
-  const ntPairs = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0); // coppie mai-insieme valide
+  const ntPairs = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]); // coppie mai-insieme valide
+  const atPairs = state.alwaysTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]); // coppie sempre-insieme valide
   const taskExcl = state.taskExclusions;   // { personIdx: [taskIdx,...] }
+
+  // Componenti connesse di alwaysTogether: parent[i] = rappresentante del gruppo
+  const parent = Array.from({ length: N }, (_, i) => i);
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+  for (const [a, b] of atPairs) { if (a < N && b < N) union(a, b); }
+  function getGroup(p) {
+    const r = find(p);
+    const g = [];
+    for (let i = 0; i < N; i++) if (find(i) === r) g.push(i);
+    return g;
+  }
 
   const workCount  = Array(N).fill(0);
   const taskCount  = Array.from({ length: N }, () => Array(NT).fill(0));
@@ -364,14 +386,21 @@ function buildSchedule(N, names, dates) {
     const allWorkers = [];
     for (const p of sorted) {
       if (allWorkers.length >= totalNeeded) break;
+      if (allWorkers.includes(p)) continue;
+      const group = getGroup(p);
+      if (allWorkers.length + group.length > totalNeeded) continue;
       let blocked = false;
-      for (const [nt0, nt1] of ntPairs) {
-        if ((p === nt0 && allWorkers.includes(nt1)) || (p === nt1 && allWorkers.includes(nt0))) {
-          blocked = true; break;
+      for (const g of group) {
+        for (const [nt0, nt1] of ntPairs) {
+          if ((g === nt0 && (allWorkers.includes(nt1) || group.includes(nt1))) ||
+              (g === nt1 && (allWorkers.includes(nt0) || group.includes(nt0)))) {
+            blocked = true; break;
+          }
         }
+        if (blocked) break;
       }
       if (blocked) continue;
-      allWorkers.push(p);
+      group.forEach(g => allWorkers.push(g));
     }
     const resting = sorted.filter(p => !allWorkers.includes(p));
     const asgn = {};
@@ -700,6 +729,27 @@ function renderTasksForm() {
           </div>`).join('')}
         </div>
         <button onclick="addNTPair()" style="margin-top:4px;background:none;border:1px dashed #C0A882;border-radius:8px;padding:6px 14px;font-size:13px;color:#8A6A50;cursor:pointer;width:100%">+ Aggiungi coppia</button>
+      </div>
+
+      <!-- Sempre insieme -->
+      <div style="margin-bottom:18px">
+        <p class="label" style="margin-bottom:8px">Persone che lavorano sempre insieme</p>
+        <div id="at-pairs">
+          ${state.alwaysTogether.map((pair, pi) => `
+          <div class="at-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <select class="select at-a" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[0]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            <span style="color:#8A6A50;font-size:12px;white-space:nowrap">sempre con</span>
+            <select class="select at-b" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[1]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            ${pi > 0 ? `<button onclick="removeATPair(${pi})" style="background:none;border:1px solid #C0A882;border-radius:6px;padding:4px 8px;font-size:14px;color:#8A6A50;cursor:pointer;flex-shrink:0">✕</button>` : '<div style="width:32px;flex-shrink:0"></div>'}
+          </div>`).join('')}
+        </div>
+        <button onclick="addATPair()" style="margin-top:4px;background:none;border:1px dashed #C0A882;border-radius:8px;padding:6px 14px;font-size:13px;color:#8A6A50;cursor:pointer;width:100%">+ Aggiungi coppia</button>
       </div>
 
       <!-- Esclusioni task per persona -->
@@ -1062,9 +1112,16 @@ function saveTasks() {
   saveState();
 }
 function saveConstraints() {
-  const rows = document.querySelectorAll('.nt-row');
-  if (rows.length > 0) {
-    state.neverTogether = Array.from(rows).map(row => {
+  const ntRows = document.querySelectorAll('.nt-row');
+  if (ntRows.length > 0) {
+    state.neverTogether = Array.from(ntRows).map(row => {
+      const [selA, selB] = row.querySelectorAll('select');
+      return [parseInt(selA.value), parseInt(selB.value)];
+    });
+  }
+  const atRows = document.querySelectorAll('.at-row');
+  if (atRows.length > 0) {
+    state.alwaysTogether = Array.from(atRows).map(row => {
       const [selA, selB] = row.querySelectorAll('select');
       return [parseInt(selA.value), parseInt(selB.value)];
     });
@@ -1084,6 +1141,19 @@ function removeNTPair(pi) {
   saveState();
   render();
 }
+function addATPair() {
+  saveConstraints();
+  state.alwaysTogether.push([-1, -1]);
+  saveState();
+  render();
+}
+function removeATPair(pi) {
+  saveConstraints();
+  state.alwaysTogether.splice(pi, 1);
+  if (state.alwaysTogether.length === 0) state.alwaysTogether = [[-1, -1]];
+  saveState();
+  render();
+}
 function toggleExclusion(pi, ti) {
   if (!state.taskExclusions[pi]) state.taskExclusions[pi] = [];
   const idx = state.taskExclusions[pi].indexOf(ti);
@@ -1100,6 +1170,30 @@ function toggleExclusion(pi, ti) {
 function generate() {
   saveTasks();
   saveConstraints();
+  // Verifica conflitti tra "mai insieme" e "sempre insieme"
+  const ntValid = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
+  const atValid = state.alwaysTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
+  for (const [a, b] of ntValid) {
+    for (const [c, d] of atValid) {
+      if ((a === c && b === d) || (a === d && b === c)) {
+        const nm = effNames();
+        alert(`Conflitto nei vincoli: la coppia "${nm[a]} – ${nm[b]}" è marcata sia come "mai insieme" sia come "sempre insieme". Correggi prima di generare.`);
+        return;
+      }
+    }
+  }
+  // Verifica gruppo "sempre insieme" non troppo grande
+  const N = state.nPeople;
+  const par = Array.from({ length: N }, (_, i) => i);
+  const fnd = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  for (const [a, b] of atValid) { if (a < N && b < N) { const ra = fnd(a), rb = fnd(b); if (ra !== rb) par[ra] = rb; } }
+  const sizes = {};
+  for (let i = 0; i < N; i++) { const r = fnd(i); sizes[r] = (sizes[r] || 0) + 1; }
+  const maxGroup = Math.max(...Object.values(sizes), 1);
+  if (maxGroup > 6) {
+    alert(`Un gruppo "sempre insieme" ha ${maxGroup} persone, ma il mercoledì lavorano solo 6 persone. Riduci il gruppo prima di generare.`);
+    return;
+  }
   const pool = getDatePool(state.startDate, state.numWeeks);
   const dates = pool.filter(d => !state.excludedDates.includes(dateToStr(d)));
   if (dates.length === 0) { alert("Nessuna data selezionata. Torna indietro e seleziona almeno una sessione."); return; }
