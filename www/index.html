@@ -244,7 +244,7 @@ let state = {
   step: 0,
   startDate: new Date().toISOString().split("T")[0],
   nPeople: 15,
-  names: Array(20).fill(""),
+  names: Array(30).fill(""),
   tasks: TASK_DEFS.map(t => t.defaultName),
   numWeeks: 12,          // settimane da pianificare (sostituisce numSessions)
   excludedDates: [],     // date YYYY-MM-DD da saltare (altri gruppi)
@@ -283,8 +283,10 @@ function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem("pulizie-v2"));
     if (!s) return;
-    if (Array.isArray(s.names) && s.names.length === 20) state.names = s.names;
-    if (s.nPeople >= 10 && s.nPeople <= 20) state.nPeople = s.nPeople;
+    if (Array.isArray(s.names)) {
+      state.names = Array(30).fill("").map((_, i) => s.names[i] || "");
+    }
+    if (s.nPeople >= 10 && s.nPeople <= 30) state.nPeople = s.nPeople;
     if (Array.isArray(s.tasks) && s.tasks.length === NT) state.tasks = s.tasks;
     if (s.startDate) state.startDate = s.startDate;
     if (s.numWeeks >= 4) state.numWeeks = s.numWeeks;
@@ -513,20 +515,14 @@ const views = {
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn-secondary" id="btn-guide-result" style="border-color:#8A6A50;color:#8A6A50">❓</button>
           <button class="btn-secondary" id="btn-edit">✏️ Modifica</button>
-          <button class="btn-secondary btn-green" id="btn-excel">📊 Excel</button>
           <button class="btn-primary" id="btn-pdf">📤 PDF</button>
           <button class="btn-primary" id="btn-img" style="background:#5A7A9A">🖼️ Immagine</button>
-          <button class="btn-primary" id="btn-html" style="background:#4A7A4A">🗂️ HTML</button>
         </div>
       </div>
 
       <div class="controls-row">
         <button class="btn-secondary" id="btn-back3" style="flex-shrink:0">‹ Indietro</button>
         <div style="width:1px;height:28px;background:#E8DDD0;flex-shrink:0"></div>
-        <button class="view-btn" id="vt-table"
-          style="border-color:${s.view==='table'?'#C1440E':'#E8DDD0'};background:${s.view==='table'?'#C1440E':'#fff'};color:${s.view==='table'?'#fff':'#8A6A50'}">
-          📋 Tabella
-        </button>
         <button class="view-btn" id="vt-persona"
           style="border-color:${s.view==='persona'?'#C1440E':'#E8DDD0'};background:${s.view==='persona'?'#C1440E':'#fff'};color:${s.view==='persona'?'#fff':'#8A6A50'}">
           👤 Per Persona
@@ -1480,8 +1476,8 @@ function handleImportNames(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data.names)) { alert('File non valido.'); return; }
-      data.names.forEach((n, i) => { if (i < 20) state.names[i] = String(n || '').toUpperCase(); });
-      if (data.nPeople >= 10 && data.nPeople <= 20) state.nPeople = data.nPeople;
+      data.names.forEach((n, i) => { if (i < 30) state.names[i] = String(n || '').toUpperCase(); });
+      if (data.nPeople >= 10 && data.nPeople <= 30) state.nPeople = data.nPeople;
       saveState();
       render();
     } catch(err) { alert('Errore lettura file: ' + err.message); }
