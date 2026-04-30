@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2C1A0E" />
+  <meta name="description" content="Piano di pulizie con rotazione automatica" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pulizie" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <title>Piano di Pulizie</title>
+  <!-- Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- Image export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; font-family: Georgia, serif; background: #FAF6EF; color: #1A1A1A; }
+    body { overflow-x: hidden; }
+    input, button, select { font-family: Georgia, serif; }
+
+    /* Install banner */
+    #install-banner {
+      display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: #2C1A0E; color: #fff; border-radius: 14px; padding: 12px 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3); z-index: 9999; align-items: center; gap: 12px;
+      max-width: 340px; width: calc(100% - 32px); font-size: 13px; animation: slideUp .4s ease;
+    }
+    #install-banner.show { display: flex; }
+    #install-banner button { background: #C1440E; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    #install-banner .close-btn { background: transparent; color: #C8A882; padding: 4px 8px; font-size: 18px; }
+    @keyframes slideUp { from { opacity:0; transform: translateX(-50%) translateY(20px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+    /* iOS install hint */
+    #ios-hint {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: #2C1A0E; color: #fff; padding: 16px 20px 32px; z-index: 9999;
+      border-radius: 20px 20px 0 0; font-size: 13px; line-height: 1.6;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.3); animation: slideUp2 .4s ease;
+    }
+    #ios-hint.show { display: block; }
+    #ios-hint h3 { font-size: 16px; margin-bottom: 8px; color: #C8A882; }
+    #ios-hint .close-x { float: right; cursor: pointer; font-size: 20px; color: #C8A882; background: none; border: none; }
+    @keyframes slideUp2 { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    /* App shell */
+    #app { min-height: 100vh; background: linear-gradient(135deg, #FAF6EF 0%, #F2EAE0 100%); }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 14px; }
+
+    /* Typography */
+    .title { font-size: 30px; font-weight: bold; letter-spacing: -1px; color: #2C1A0E; margin-bottom: 4px; text-align: center; }
+    .subtitle { font-size: 11px; color: #8A6A50; text-align: center; margin-bottom: 28px; letter-spacing: 2px; text-transform: uppercase; }
+
+    /* Card */
+    .card { background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 4px 24px rgba(44,26,14,.08); margin-bottom: 16px; }
+
+    /* Buttons */
+    .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 12px 22px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; font-family: Georgia,serif; background: #C1440E; color: #fff; transition: opacity .15s; }
+    .btn-primary:active { opacity: .8; }
+    .btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; font-family: Georgia,serif; background: #fff; color: #C1440E; border: 2px solid #C1440E; transition: opacity .15s; }
+    .btn-secondary:active { opacity: .8; }
+    .btn-green { color: #2E7D50; border-color: #2E7D50; }
+    .btn-row { display: flex; gap: 8px; margin-top: 22px; flex-wrap: wrap; }
+
+    /* Label & Input */
+    .label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #8A6A50; margin-bottom: 6px; }
+    .input { width: 100%; padding: 10px 12px; border: 2px solid #E8DDD0; border-radius: 8px; font-size: 15px; font-family: Georgia,serif; background: #FAF6EF; color: #1A1A1A; outline: none; transition: border-color .2s; }
+    .input:focus { border-color: #C1440E; }
+    .select { width: 100%; padding: 10px 12px; border: 2px solid #E8DDD0; border-radius: 8px; font-size: 14px; font-family: Georgia,serif; background: #FAF6EF; color: #1A1A1A; outline: none; transition: border-color .2s; cursor: pointer; }
+    .select:focus { border-color: #C1440E; }
+
+    /* Step bar */
+    .stepbar { display: flex; gap: 2px; justify-content: center; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
+    .step-dot { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+    .step-dot.done { background: #2E7D50; color: #fff; }
+    .step-dot.active { background: #C1440E; color: #fff; }
+    .step-dot.pending { background: #E8DDD0; color: #8A6A50; }
+    .step-line { width: 12px; height: 2px; flex-shrink: 0; }
+    .step-line.done { background: #2E7D50; }
+    .step-line.pending { background: #E8DDD0; }
+    .step-label { font-size: 9px; margin-left: 2px; margin-right: 4px; font-weight: 700; }
+
+    /* Grid */
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (max-width: 500px) {
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Table — prima colonna sticky */
+    .table-wrap {
+      overflow-x: auto; border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(44,26,14,.08);
+      -webkit-overflow-scrolling: touch;
+      will-change: scroll-position;
+    }
+    table { border-collapse: collapse; width: 100%; background: #fff; }
+    thead tr { background: #2C1A0E; }
+    th { padding: 6px 3px; color: #FFFFFF; font-weight: 700; font-size: 10px; text-align: center; white-space: nowrap; }
+    th.left { text-align: left; }
+    td { padding: 4px 2px; text-align: center; border-bottom: 1px solid #F0E8DC; }
+    tr:nth-child(even) td { background: #FAF6EF; }
+    .cell-empty { color: #D8CCBC; }
+    /* Sticky prima colonna header */
+    table thead th:first-child {
+      position: sticky; left: 0; z-index: 3;
+      background: #2C1A0E;
+    }
+    /* Sticky prima colonna body — righe dispari */
+    table tbody td:first-child {
+      position: sticky; left: 0; z-index: 2;
+      background: #fff;
+    }
+    /* Sticky prima colonna body — righe pari */
+    table tbody tr:nth-child(even) td:first-child {
+      background: #FAF6EF;
+    }
+
+    /* Person view */
+    .person-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .person-pill { padding: 5px 13px; border-radius: 20px; border: 2px solid; cursor: pointer; font-family: Georgia,serif; transition: all .15s; }
+    .person-pill:active { opacity: .8; }
+    .session-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 8px; }
+    .session-card { padding: 11px 12px; border-radius: 10px; border: 2px solid; }
+    .session-card .sc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+    .session-card .sc-num { font-size: 10px; color: #8A6A50; font-weight: 700; }
+    .session-card .sc-day { font-size: 9px; color: #B0A090; background: #F0E8DC; padding: 1px 6px; border-radius: 10px; }
+    .session-card .sc-date { font-size: 10px; color: #8A6A50; margin-bottom: 5px; }
+    .session-card .sc-rest { font-size: 12px; color: #B0A090; font-style: italic; }
+
+    /* View toggle & font controls */
+    .controls-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .view-btn { padding: 8px 14px; border-radius: 8px; border: 2px solid; cursor: pointer; font-size: 12px; font-weight: 700; font-family: Georgia,serif; transition: all .15s; }
+    .font-btn { width: 34px; height: 34px; border-radius: 8px; border: 2px solid #C1440E; background: #fff; color: #C1440E; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: Georgia,serif; }
+    .font-btn:active { background: #C1440E; color: #fff; }
+    .font-label { font-size: 11px; color: #8A6A50; font-weight: 700; }
+
+    /* Date selection */
+    .date-list { display: flex; flex-direction: column; gap: 6px; }
+    .date-week-label { font-size: 10px; font-weight: 700; color: #8A6A50; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; margin-bottom: 2px; }
+    .date-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; border: 2px solid; transition: all .15s; }
+    .date-row.included { background: #F0FBF4; border-color: #2E7D50; }
+    .date-row.excluded { background: #FAF6EF; border-color: #E8DDD0; }
+    .date-toggle { padding: 5px 12px; border-radius: 7px; border: none; font-size: 11px; font-weight: 700; font-family: Georgia,serif; cursor: pointer; min-width: 110px; }
+    .date-toggle.included { background: #2E7D50; color: #fff; }
+    .date-toggle.excluded { background: #E8DDD0; color: #8A6A50; }
+
+    /* Task chips */
+    .task-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
+    /* Landing */
+    .landing-center { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .stats-row { display: flex; gap: 20px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
+    .stat-box { text-align: center; }
+    .stat-num { font-size: 26px; font-weight: 700; color: #C1440E; }
+    .stat-label { font-size: 10px; color: #8A6A50; letter-spacing: 1px; }
+
+    /* People counter */
+    .counter-row { display: flex; align-items: center; gap: 14px; }
+    .counter-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #C1440E; background: #fff; color: #C1440E; font-size: 22px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+    .counter-btn:active { background: #C1440E; color: #fff; }
+    .counter-val { font-size: 30px; font-weight: 700; color: #2C1A0E; min-width: 52px; text-align: center; }
+
+    /* Linked task badge */
+    .linked-note { font-size: 8px; color: #B0A090; font-style: italic; display: block; white-space: nowrap; line-height: 1.2; }
+
+    /* Guide overlay */
+    .guide-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.65); z-index: 9999;
+      overflow-y: auto; padding: 16px;
+    }
+    .guide-box {
+      background: #fff; border-radius: 18px; max-width: 640px;
+      margin: 0 auto; padding: 24px;
+    }
+    .guide-section { margin-bottom: 18px; }
+    .guide-section h3 { font-size: 14px; color: #C1440E; margin-bottom: 6px; }
+    .guide-section p, .guide-section li { font-size: 13px; color: #5A4A3A; line-height: 1.7; }
+    .guide-section ul { padding-left: 18px; }
+    .guide-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #F0FBF4; color: #2E7D50; border: 1px solid #BCE8CA;
+      border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700;
+    }
+    .guide-chip.orange { background: #FFF3EC; color: #C1440E; border-color: #F8C9B5; }
+
+    /* Chip compiti per esclusioni */
+    .chip-task {
+      font-size: 11px; padding: 4px 10px; border-radius: 20px;
+      border: 1.5px solid #C8A882; background: #fff; color: #2C1A0E;
+      cursor: pointer; transition: background 0.2s, color 0.2s;
+      line-height: 1.4; margin: 0;
+    }
+    .chip-excluded {
+      background: #E74C3C; color: #fff; border-color: #C0392B;
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+
+<div id="install-banner">
+  <span>📲 Installa l'app sul tuo dispositivo!</span>
+  <button id="install-btn">Installa</button>
+  <button class="close-btn" id="install-close">✕</button>
+</div>
+<div id="ios-hint">
+  <button class="close-x" id="ios-close">✕</button>
+  <h3>📲 Installa su iPhone/iPad</h3>
+  <p>Tocca <strong>Condividi</strong> (□↑) in basso nel browser Safari,<br>poi scegli <strong>"Aggiungi a schermata Home"</strong>.</p>
+</div>
+<div id="app"></div>
+
+<script>
+// ─── TASK DEFINITIONS ────────────────────────────────────────────────────────
+const TASK_DEFS = [
+  { defaultName: "App. Gomiti e Maniglie",         sunOnly: false, workers: 1 }, // 0
+  { defaultName: "Water e Lavandini",               sunOnly: false, workers: 1 }, // 1
+  { defaultName: "Svuotare i Cestini",              sunOnly: false, workers: 1 }, // 2
+  { defaultName: "Lavare Pavimento Bagno",          sunOnly: false, workers: 1 }, // 3
+  { defaultName: "Aspirapolvere",                   sunOnly: false, workers: 1 }, // 4
+  { defaultName: "Passare Swift",                   sunOnly: false, workers: 1 }, // 5
+  { defaultName: "Domenica Lavare Sala e Stanze",   sunOnly: true,  workers: 2 }, // 6
+  { defaultName: "Lavare Stracci",                  sunOnly: false, workers: 1 }, // 7 → ABBINATO
+];
+const NT = TASK_DEFS.length;
+const TASK_COLORS = ["#C1440E","#2E7D50","#1A5E8A","#7B4B94","#B07A00","#1A6B6B","#8A3A3A","#4A6741"];
+
+// ─── NOMI GIORNI ─────────────────────────────────────────────────────────────
+const DAY_NAMES_IT = ["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+function getDayName(n) { return DAY_NAMES_IT[n]; }
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  step: 0,
+  startDate: new Date().toISOString().split("T")[0],
+  nPeople: 15,
+  names: Array(30).fill(""),
+  tasks: TASK_DEFS.map(t => t.defaultName),
+  numWeeks: 12,          // settimane da pianificare (sostituisce numSessions)
+  excludedDates: [],     // date YYYY-MM-DD da saltare (altri gruppi)
+  day1: 3,               // giorno "normale" (3=Mercoledì)
+  day2: 0,               // giorno "speciale" con Sala&Stanze (0=Domenica)
+  neverTogether: [[-1, -1]], // array di coppie [persA, persB] mai insieme (-1=nessuno)
+  alwaysTogether: [[-1, -1]], // array di coppie [persA, persB] sempre insieme stesso giorno
+  taskExclusions: {},    // { personIdx: [taskIdx,...] }
+  schedule: null,
+  view: "table",
+  selPerson: 0,
+  fontSize: 11,
+  tablePage: 0
+};
+
+// ─── PERSISTENZA localStorage ─────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem("pulizie-v2", JSON.stringify({
+      names: state.names,
+      nPeople: state.nPeople,
+      tasks: state.tasks,
+      startDate: state.startDate,
+      numWeeks: state.numWeeks,
+      excludedDates: state.excludedDates,
+      day1: state.day1,
+      day2: state.day2,
+      neverTogether: state.neverTogether,
+      alwaysTogether: state.alwaysTogether,
+      taskExclusions: state.taskExclusions
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem("pulizie-v2"));
+    if (!s) return;
+    if (Array.isArray(s.names)) {
+      state.names = Array(30).fill("").map((_, i) => {
+        const v = s.names[i];
+        if (typeof v !== 'string') return "";
+        if (v.trim().toLowerCase() === 'undefined') return "";
+        return v;
+      });
+    }
+    if (s.nPeople >= 10 && s.nPeople <= 30) state.nPeople = s.nPeople;
+    if (Array.isArray(s.tasks) && s.tasks.length === NT) state.tasks = s.tasks;
+    if (s.startDate) state.startDate = s.startDate;
+    if (s.numWeeks >= 4) state.numWeeks = s.numWeeks;
+    if (Array.isArray(s.excludedDates)) state.excludedDates = s.excludedDates;
+    if (s.day1 !== undefined && s.day1 >= 0 && s.day1 <= 6) state.day1 = s.day1;
+    if (s.day2 !== undefined && s.day2 >= 0 && s.day2 <= 6) state.day2 = s.day2;
+    if (Array.isArray(s.neverTogether)) {
+      if (s.neverTogether.length === 2 && typeof s.neverTogether[0] === 'number') {
+        state.neverTogether = [s.neverTogether]; // retrocompatibilità formato vecchio
+      } else if (s.neverTogether.length > 0 && Array.isArray(s.neverTogether[0])) {
+        state.neverTogether = s.neverTogether;
+      }
+    }
+    if (Array.isArray(s.alwaysTogether)) {
+      if (s.alwaysTogether.length === 2 && typeof s.alwaysTogether[0] === 'number') {
+        state.alwaysTogether = [s.alwaysTogether];
+      } else if (s.alwaysTogether.length > 0 && Array.isArray(s.alwaysTogether[0])) {
+        state.alwaysTogether = s.alwaysTogether;
+      }
+    }
+    if (s.taskExclusions && typeof s.taskExclusions === 'object') state.taskExclusions = s.taskExclusions;
+  } catch(e) {}
+}
+
+function effNames() {
+  return state.names.slice(0, state.nPeople).map((n, i) => n.trim() || `Persona ${i + 1}`);
+}
+function effTasks() {
+  return state.tasks.map((t, i) => t.trim() || TASK_DEFS[i].defaultName);
+}
+function dateToStr(d) { return d.toISOString().split('T')[0]; }
+
+// ─── CALCOLO DATE ─────────────────────────────────────────────────────────────
+// Restituisce TUTTI i giorni day1 e day2 per numWeeks settimane
+function getDatePool(startStr, numWeeks) {
+  const d1 = state.day1, d2 = state.day2;
+  const dates = [], d = new Date(startStr + "T00:00:00");
+  while (d.getDay() !== d1 && d.getDay() !== d2) d.setDate(d.getDate() + 1);
+  const end = new Date(d);
+  end.setDate(end.getDate() + numWeeks * 7);
+  while (d < end) {
+    if (d.getDay() === d1 || d.getDay() === d2) dates.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+// ─── ALGORITMO ───────────────────────────────────────────────────────────────
+function buildSchedule(N, names, dates) {
+  const ntPairs = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]); // coppie mai-insieme valide
+  const atPairs = state.alwaysTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]); // coppie sempre-insieme valide
+  const taskExcl = state.taskExclusions;   // { personIdx: [taskIdx,...] }
+
+  // Componenti connesse di alwaysTogether: parent[i] = rappresentante del gruppo
+  const parent = Array.from({ length: N }, (_, i) => i);
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+  for (const [a, b] of atPairs) { if (a < N && b < N) union(a, b); }
+  function getGroup(p) {
+    const r = find(p);
+    const g = [];
+    for (let i = 0; i < N; i++) if (find(i) === r) g.push(i);
+    return g;
+  }
+
+  const workCount  = Array(N).fill(0);
+  const taskCount  = Array.from({ length: N }, () => Array(NT).fill(0));
+  const lastTask   = Array(N).fill(-1);
+  const lastWorked = Array(N).fill(-1);
+
+  function assignWithBT(slots, pool, asgn) {
+    const used = new Set();
+    function cands(ti) {
+      const avail = pool.filter(w => !used.has(w) && !(taskExcl[w] && taskExcl[w].includes(ti)));
+      const pref = avail.filter(w => lastTask[w] !== ti).sort((a, b) => taskCount[a][ti] - taskCount[b][ti]);
+      const fall = avail.filter(w => lastTask[w] === ti).sort((a, b) => taskCount[a][ti] - taskCount[b][ti]);
+      return [...pref, ...fall];
+    }
+    function bt(idx) {
+      if (idx === slots.length) return true;
+      const ti = slots[idx];
+      if (!asgn[ti]) asgn[ti] = [];
+      for (const w of cands(ti)) {
+        asgn[ti].push(w); used.add(w);
+        if (bt(idx + 1)) return true;
+        asgn[ti].pop(); used.delete(w);
+      }
+      return false;
+    }
+    bt(0);
+  }
+
+  return dates.map((date, si) => {
+    const isSun = date.getDay() === state.day2;
+    const totalNeeded = isSun ? 8 : 6;
+    const sorted = [...Array(N).keys()].sort((a, b) =>
+      workCount[a] !== workCount[b] ? workCount[a] - workCount[b] : lastWorked[a] - lastWorked[b]
+    );
+    const allWorkers = [];
+    for (const p of sorted) {
+      if (allWorkers.length >= totalNeeded) break;
+      if (allWorkers.includes(p)) continue;
+      const group = getGroup(p);
+      if (allWorkers.length + group.length > totalNeeded) continue;
+      let blocked = false;
+      for (const g of group) {
+        for (const [nt0, nt1] of ntPairs) {
+          if ((g === nt0 && (allWorkers.includes(nt1) || group.includes(nt1))) ||
+              (g === nt1 && (allWorkers.includes(nt0) || group.includes(nt0)))) {
+            blocked = true; break;
+          }
+        }
+        if (blocked) break;
+      }
+      if (blocked) continue;
+      group.forEach(g => allWorkers.push(g));
+    }
+    const resting = sorted.filter(p => !allWorkers.includes(p));
+    const asgn = {};
+
+    if (isSun) {
+      const eligibleT6 = allWorkers
+        .filter(w => !(taskExcl[w] && taskExcl[w].includes(6)))
+        .sort((a, b) => taskCount[a][6] - taskCount[b][6]);
+      const t6 = eligibleT6.slice(0, 2);
+      const t05 = allWorkers.filter(w => !t6.includes(w));
+      assignWithBT([0, 1, 2, 3, 4, 5], t05, asgn);
+      asgn[6] = t6;
+      asgn[7] = [t6.reduce((a, b) => taskCount[a][7] <= taskCount[b][7] ? a : b)];
+    } else {
+      assignWithBT([0, 1, 2, 3, 4, 5], allWorkers, asgn);
+      if (asgn[3] && asgn[3].length > 0) asgn[7] = [asgn[3][0]];
+    }
+
+    allWorkers.forEach(w => { workCount[w]++; lastWorked[w] = si; });
+    Object.entries(asgn).forEach(([tiStr, persons]) => {
+      const ti = parseInt(tiStr);
+      (persons || []).forEach(p => { taskCount[p][ti]++; if (ti !== 7) lastTask[p] = ti; });
+    });
+
+    return { num: si + 1, date, dayName: getDayName(date.getDay()), isSunday: isSun, assignments: asgn, resting };
+  });
+}
+
+function fmtDate(d) { return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+function fmtDateShort(d) { return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }); }
+
+// ─── RENDER ENGINE ───────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById("app");
+  const vk = state.step >= 3 ? 3 : Math.floor(state.step);
+  app.innerHTML = views[vk]();
+  attachEvents();
+}
+
+// stepBar: 5 step — Data(0), Date(1), Nomi(2), Compiti(3), Piano(4)
+function stepBar(current) {
+  const labels = ["Data", "Date", "Nomi", "Compiti", "Piano"];
+  return `<div class="stepbar">
+    ${labels.map((l, i) => `
+      <div class="step-dot ${i < current ? 'done' : i === current ? 'active' : 'pending'}">${i < current ? '✓' : i + 1}</div>
+      <span class="step-label" style="color:${i === current ? '#C1440E' : '#8A6A50'}">${l}</span>
+      ${i < 4 ? `<div class="step-line ${i < current ? 'done' : 'pending'}"></div>` : ''}
+    `).join('')}
+  </div>`;
+}
+
+// ─── VIEWS ───────────────────────────────────────────────────────────────────
+const views = {
+
+  0: () => `
+    <div>
+      <div class="landing-center">
+        <div style="font-size:56px;margin-bottom:10px">🧹</div>
+        <h1 class="title">Piano di Pulizie</h1>
+        <p class="subtitle">Rotazione automatica · Mercoledì e Domenica</p>
+        <div class="card" style="max-width:460px;text-align:center">
+          <p style="color:#5A4A3A;line-height:1.9;font-size:14px;margin-bottom:22px">
+            Crea un programma equo e automatico.<br>
+            <strong>2 sessioni a settimana</strong> — Mercoledì e Domenica.<br>
+            Mercoledì: chi lava il <em>Bagno</em> lava anche gli <em>Stracci</em>.<br>
+            Domenica: uno dei 2 di <em>Sala&amp;Stanze</em> lava anche gli <em>Stracci</em>.
+          </p>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-num">10–30</div><div class="stat-label">Persone</div></div>
+            <div class="stat-box"><div class="stat-num">8</div><div class="stat-label">Compiti</div></div>
+            <div class="stat-box"><div class="stat-num">Mer+Dom</div><div class="stat-label">Sessioni</div></div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <button class="btn-primary" id="btn-start">Inizia il Setup ›</button>
+            <button class="btn-secondary" id="btn-guide-landing" style="border-color:#8A6A50;color:#8A6A50">❓ Come funziona</button>
+          </div>
+        </div>
+      </div>
+    </div>`,
+
+  1: () => `
+    <div class="container">
+      <h1 class="title">Piano di Pulizie</h1>
+      <p class="subtitle">Configurazione</p>
+      ${state.step === 1 ? stepBar(0) : stepBar(1)}
+      ${state.step === 1 ? renderStep1Form() : renderDateSelectionForm()}
+    </div>`,
+
+  2: () => `
+    <div class="container">
+      <h1 class="title">Piano di Pulizie</h1>
+      <p class="subtitle">Configurazione</p>
+      ${state.step === 2 ? stepBar(2) : stepBar(3)}
+      ${state.step === 2 ? renderNamesForm() : renderTasksForm()}
+    </div>`,
+
+  3: () => {
+    const names = effNames(), tasks = effTasks(), s = state;
+    const sch = s.schedule;
+    const fs = s.fontSize;
+    return `
+    <div class="container">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h1 class="title" style="text-align:left;font-size:22px;margin-bottom:2px">Piano di Pulizie</h1>
+          <p style="color:#8A6A50;font-size:11px;letter-spacing:1px">
+            ${s.nPeople} PERSONE · ${sch.length} SESSIONI · MER &amp; DOM · DAL ${fmtDate(sch[0].date).toUpperCase()}
+          </p>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-secondary" id="btn-guide-result" style="border-color:#8A6A50;color:#8A6A50">❓</button>
+          <button class="btn-secondary" id="btn-edit">✏️ Modifica</button>
+          <button class="btn-primary" id="btn-pdf">📤 PDF</button>
+          <button class="btn-primary" id="btn-img" style="background:#5A7A9A">🖼️ Immagine</button>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button class="btn-secondary" id="btn-back3" style="flex-shrink:0">‹ Indietro</button>
+        <div style="width:1px;height:28px;background:#E8DDD0;flex-shrink:0"></div>
+        <button class="view-btn" id="vt-persona"
+          style="border-color:${s.view==='persona'?'#C1440E':'#E8DDD0'};background:${s.view==='persona'?'#C1440E':'#fff'};color:${s.view==='persona'?'#fff':'#8A6A50'}">
+          👤 Per Persona
+        </button>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <span class="font-label">Testo:</span>
+          <button class="font-btn" id="btn-font-minus">A−</button>
+          <span class="font-label" id="font-size-display" style="min-width:32px;text-align:center">${fs}px</span>
+          <button class="font-btn" id="btn-font-plus">A+</button>
+        </div>
+      </div>
+
+      ${s.view === 'table' ? (() => {
+        const PAGE = 2;
+        const totalPages = Math.ceil(sch.length / PAGE);
+        const page = Math.min(s.tablePage || 0, totalPages - 1);
+        const schPage = sch.slice(page * PAGE, page * PAGE + PAGE);
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px 2px">
+            <button class="btn-secondary" id="btn-tbl-prev" ${page === 0 ? 'disabled style="opacity:.35"' : ''} style="padding:4px 12px;font-size:13px">‹</button>
+            <span style="font-size:12px;color:#8A6A50">${page + 1} / ${totalPages}</span>
+            <button class="btn-secondary" id="btn-tbl-next" ${page >= totalPages - 1 ? 'disabled style="opacity:.35"' : ''} style="padding:4px 12px;font-size:13px">›</button>
+          </div>
+          ${renderTable(names, tasks, schPage, fs)}`;
+      })() : renderPersonView(names, tasks, sch)}
+
+    </div>`;
+  }
+};
+
+// ─── RENDER FORMS ────────────────────────────────────────────────────────────
+function renderStep1Form() {
+  const weekOptions = [4, 8, 12, 16, 20, 24, 30];
+  const dayOpts1 = [1,2,3,4,5,6];   // giorno normale (escluso domenica=0 che è raro come primo)
+  const dayOpts2 = [0,1,2,3,4,5,6]; // giorno speciale (tutti i giorni)
+  return `<div class="card" style="max-width:500px;margin:0 auto">
+    <h2 style="font-size:18px;color:#2C1A0E;margin-bottom:6px">Data e partecipanti</h2>
+    <p style="color:#8A6A50;font-size:13px;margin-bottom:20px">
+      Il ciclo partirà dal primo giorno di sessione successivo alla data scelta.
+    </p>
+
+    <label class="label">Data di inizio</label>
+    <input type="date" id="date-input" class="input" value="${state.startDate}" style="max-width:220px;margin-bottom:22px">
+
+    <label class="label" style="margin-bottom:10px">Numero di persone</label>
+    <div class="counter-row" style="margin-bottom:22px">
+      <button class="counter-btn" id="btn-np-minus">−</button>
+      <span class="counter-val" id="np-val">${state.nPeople}</span>
+      <button class="counter-btn" id="btn-np-plus">+</button>
+      <span style="font-size:12px;color:#8A6A50">min 10 · max 30</span>
+    </div>
+
+    <label class="label">Settimane da pianificare</label>
+    <select id="weeks-input" class="select" style="max-width:280px;margin-bottom:22px">
+      ${weekOptions.map(w =>
+        `<option value="${w}" ${state.numWeeks === w ? 'selected' : ''}>${w} settimane (~${w * 2} sessioni)</option>`
+      ).join('')}
+    </select>
+
+    <label class="label">Primo giorno delle sessioni (pulizie di base)</label>
+    <select id="day1-input" class="select" style="max-width:280px;margin-bottom:16px">
+      ${dayOpts1.map(d =>
+        `<option value="${d}" ${state.day1 === d ? 'selected' : ''}>${DAY_NAMES_IT[d]}</option>`
+      ).join('')}
+    </select>
+
+    <label class="label">Secondo giorno (con Sala e Stanze, 9 lavoratori)</label>
+    <select id="day2-input" class="select" style="max-width:280px">
+      ${dayOpts2.map(d =>
+        `<option value="${d}" ${state.day2 === d ? 'selected' : ''}>${DAY_NAMES_IT[d]}</option>`
+      ).join('')}
+    </select>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="btn-back0">‹ Indietro</button>
+      <button class="btn-primary" id="btn-to-dates">Avanti: Seleziona Date ›</button>
+    </div>
+  </div>`;
+}
+
+function renderDateSelectionForm() {
+  const pool = getDatePool(state.startDate, state.numWeeks);
+  const selectedCount = pool.filter(d => !state.excludedDates.includes(dateToStr(d))).length;
+
+  // Raggruppa per settimana
+  let rows = '';
+  let lastWeek = -1;
+  pool.forEach((d, idx) => {
+    const weekNum = Math.floor(idx / 2) + 1;
+    if (weekNum !== lastWeek) {
+      rows += `<div class="date-week-label">Settimana ${weekNum}</div>`;
+      lastWeek = weekNum;
+    }
+    const ds = dateToStr(d);
+    const isExcluded = state.excludedDates.includes(ds);
+    const dayLabel = getDayName(d.getDay());
+    rows += `
+      <div class="date-row ${isExcluded ? 'excluded' : 'included'}" id="date-row-${ds}">
+        <span style="font-size:13px;font-weight:700;color:${isExcluded ? '#B0A090' : '#2C1A0E'}">
+          ${dayLabel} ${fmtDate(d)}
+        </span>
+        <button class="date-toggle ${isExcluded ? 'excluded' : 'included'}"
+          id="date-btn-${ds}"
+          onclick="toggleDate('${ds}')">
+          ${isExcluded ? '○ Altro gruppo' : '✓ Nostro turno'}
+        </button>
+      </div>`;
+  });
+
+  return `<div class="card" style="max-width:560px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <h2 style="font-size:18px;color:#2C1A0E">Seleziona le TUE sessioni</h2>
+      <div style="text-align:right">
+        <div style="font-size:24px;font-weight:700;color:#2E7D50" id="date-counter">${selectedCount}</div>
+        <div style="font-size:9px;color:#8A6A50;letter-spacing:1px">SESSIONI</div>
+      </div>
+    </div>
+    <p style="color:#8A6A50;font-size:13px;margin-bottom:16px">
+      Deseleziona le date in cui tocca ad <strong>altri gruppi</strong> fare le pulizie.
+    </p>
+    <div class="date-list">${rows}</div>
+    <div class="btn-row">
+      <button class="btn-secondary" id="btn-back-dates">‹ Indietro</button>
+      <button class="btn-primary" id="btn-to-names">Avanti: Nomi ›</button>
+    </div>
+  </div>`;
+}
+
+function renderNamesForm() {
+  const rows = [];
+  for (let i = 0; i < state.nPeople; i++) {
+    rows.push(`
+      <div>
+        <label class="label">${i + 1}.</label>
+        <input class="input name-input" data-idx="${i}" value="${escHtml(state.names[i] || '')}"
+          placeholder="Persona ${i + 1}" style="text-transform:uppercase">
+      </div>`);
+  }
+  return `<div class="card">
+    <h2 style="font-size:18px;color:#2C1A0E;margin-bottom:4px">Inserisci i ${state.nPeople} nomi</h2>
+    <p style="color:#8A6A50;font-size:13px;margin-bottom:18px">I nomi vengono salvati automaticamente in maiuscolo.</p>
+    <div class="grid-3">${rows.join('')}</div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn-secondary" id="btn-back-names">‹ Indietro</button>
+      <button class="btn-secondary" id="btn-export-names" style="border-color:#8A6A50;color:#8A6A50">📤 Esporta Nomi</button>
+      <button class="btn-secondary" id="btn-import-names" style="border-color:#2E7D50;color:#2E7D50">📥 Importa Nomi</button>
+      <input type="file" id="import-names-input" accept=".json" style="display:none">
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn-primary" id="btn-to-tasks" style="width:100%">Avanti: Compiti ›</button>
+    </div>
+  </div>`;
+}
+
+function renderTasksForm() {
+  const names = effNames();
+  const tasks = effTasks();
+  return `<div class="card" style="max-width:640px;margin:0 auto">
+    <h2 style="font-size:18px;color:#2C1A0E;margin-bottom:4px">Verifica i compiti</h2>
+    <p style="color:#8A6A50;font-size:13px;margin-bottom:18px">
+      Modifica i nomi se vuoi. &nbsp;🗓 solo ${getDayName(state.day2)} &nbsp;·&nbsp; ×2 due persone &nbsp;·&nbsp; 🔗 abbinato ad altro
+    </p>
+    <div class="grid-2">
+      ${TASK_DEFS.map((td, i) => `
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:11px;height:11px;border-radius:50%;background:${TASK_COLORS[i]};flex-shrink:0"></div>
+          <div style="flex:1">
+            <label class="label">
+              Compito ${i + 1}
+              ${td.sunOnly ? ' 🗓 solo ' + getDayName(state.day2) + '.' : ''}
+              ${td.workers === 2 ? ' · ×2' : ''}
+              ${i === 7 ? ' · 🔗 abbinato' : ''}
+            </label>
+            <input class="input task-input" data-idx="${i}"
+              value="${escHtml(state.tasks[i])}"
+              placeholder="${escHtml(td.defaultName)}">
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div style="margin-top:20px;border-top:1px solid #F0E8DC;padding-top:20px">
+      <h3 style="font-size:15px;color:#2C1A0E;margin-bottom:14px">⚙️ Vincoli speciali</h3>
+
+      <!-- Mai insieme -->
+      <div style="margin-bottom:18px">
+        <p class="label" style="margin-bottom:8px">Persone che non lavorano mai insieme</p>
+        <div id="nt-pairs">
+          ${state.neverTogether.map((pair, pi) => `
+          <div class="nt-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <select class="select nt-a" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[0]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            <span style="color:#8A6A50;font-size:12px;white-space:nowrap">mai con</span>
+            <select class="select nt-b" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[1]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            ${pi > 0 ? `<button onclick="removeNTPair(${pi})" style="background:none;border:1px solid #C0A882;border-radius:6px;padding:4px 8px;font-size:14px;color:#8A6A50;cursor:pointer;flex-shrink:0">✕</button>` : '<div style="width:32px;flex-shrink:0"></div>'}
+          </div>`).join('')}
+        </div>
+        <button onclick="addNTPair()" style="margin-top:4px;background:none;border:1px dashed #C0A882;border-radius:8px;padding:6px 14px;font-size:13px;color:#8A6A50;cursor:pointer;width:100%">+ Aggiungi coppia</button>
+      </div>
+
+      <!-- Sempre insieme -->
+      <div style="margin-bottom:18px">
+        <p class="label" style="margin-bottom:8px">Persone che lavorano sempre insieme</p>
+        <div id="at-pairs">
+          ${state.alwaysTogether.map((pair, pi) => `
+          <div class="at-row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <select class="select at-a" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[0]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            <span style="color:#8A6A50;font-size:12px;white-space:nowrap">sempre con</span>
+            <select class="select at-b" style="flex:1;min-width:120px">
+              <option value="-1">— Nessuno —</option>
+              ${names.map((n,i) => `<option value="${i}" ${pair[1]===i?'selected':''}>${escHtml(n)}</option>`).join('')}
+            </select>
+            ${pi > 0 ? `<button onclick="removeATPair(${pi})" style="background:none;border:1px solid #C0A882;border-radius:6px;padding:4px 8px;font-size:14px;color:#8A6A50;cursor:pointer;flex-shrink:0">✕</button>` : '<div style="width:32px;flex-shrink:0"></div>'}
+          </div>`).join('')}
+        </div>
+        <button onclick="addATPair()" style="margin-top:4px;background:none;border:1px dashed #C0A882;border-radius:8px;padding:6px 14px;font-size:13px;color:#8A6A50;cursor:pointer;width:100%">+ Aggiungi coppia</button>
+      </div>
+
+      <!-- Esclusioni task per persona -->
+      <div>
+        <p class="label" style="margin-bottom:4px">Compiti esclusi per persona</p>
+        <p style="font-size:12px;color:#8A6A50;margin-bottom:12px">Tocca i compiti da escludere (appaiono barrati)</p>
+        ${names.map((name, pi) => `
+          <div style="margin-bottom:12px">
+            <p style="font-size:13px;font-weight:600;color:#2C1A0E;margin-bottom:5px">${escHtml(name)}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              ${tasks.map((task, ti) => {
+                const isExcl = (state.taskExclusions[pi]||[]).includes(ti);
+                return `<button class="chip-task${isExcl?' chip-excluded':''}"
+                  onclick="toggleExclusion(${pi},${ti})">${escHtml(task)}</button>`;
+              }).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="btn-back-tasks">‹ Indietro</button>
+      <button class="btn-primary" id="btn-generate">🗓 Genera il Piano ›</button>
+    </div>
+  </div>`;
+}
+
+// ─── RENDER TABLE (sticky prima colonna) ──────────────────────────────────────
+function renderTable(names, tasks, sch, fs) {
+  const fontSize = fs || 11;
+  return `<div class="table-wrap" style="font-size:${fontSize}px">
+    <table>
+      <thead><tr>
+        <th class="left" style="min-width:110px;width:110px;padding:6px 6px;font-size:${Math.max(8, fontSize - 1)}px">Compito</th>
+        ${sch.map(s => `
+          <th style="padding:6px 2px;min-width:${fontSize * 4.5}px;font-size:${Math.max(8, fontSize - 1)}px">
+            <div style="opacity:.8">${s.dayName.slice(0, 3).toUpperCase()}</div>
+            <div>${fmtDateShort(s.date)}</div>
+          </th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${TASK_DEFS.map((td, ti) => {
+          const col = TASK_COLORS[ti];
+          return `<tr>
+            <td style="text-align:left;padding:4px 6px;min-width:110px;width:110px">
+              <div style="display:flex;align-items:flex-start;gap:5px">
+                <span style="flex-shrink:0;display:inline-block;width:8px;height:8px;border-radius:50%;background:${col};margin-top:3px"></span>
+                <span style="font-weight:700;color:${col}">${escHtml(tasks[ti])}</span>
+              </div>
+            </td>
+            ${sch.map(s => {
+              if (!s.isSunday && td.sunOnly) return `<td><span class="cell-empty">—</span></td>`;
+              const persons = (s.assignments[ti] || []).map(pi => names[pi]);
+              if (!persons.length) return `<td><span class="cell-empty">—</span></td>`;
+              return `<td style="padding:3px 2px">
+                ${persons.map(n => `<div style="font-weight:700;color:${col};white-space:nowrap">${escHtml(n)}</div>`).join('')}
+              </td>`;
+            }).join('')}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ─── RENDER PERSON VIEW ──────────────────────────────────────────────────────
+function renderPersonView(names, tasks, sch) {
+  const sp = state.selPerson;
+  const fs = state.fontSize;
+  const sessData = sch.map(s => {
+    if (s.resting.includes(sp)) return { ...s, myTasks: [] };
+    const myTasks = [];
+    for (const [tiStr, persons] of Object.entries(s.assignments)) {
+      if ((persons || []).includes(sp)) myTasks.push(parseInt(tiStr));
+    }
+    return { ...s, myTasks };
+  });
+  const workCount = sessData.filter(s => s.myTasks.length > 0).length;
+  const restCount = sessData.length - workCount;
+  return `
+    <div class="person-pills">
+      ${names.map((n, i) => `
+        <button class="person-pill" data-person="${i}"
+          style="border-color:${i===sp?'#C1440E':'#E8DDD0'};background:${i===sp?'#C1440E':'#fff'};color:${i===sp?'#fff':'#5A4A3A'};font-weight:${i===sp?'700':'400'};font-size:${fs}px">
+          ${escHtml(n)}
+        </button>`).join('')}
+    </div>
+    <div class="card">
+      <h3 style="font-size:${fs + 8}px;color:#2C1A0E;margin-bottom:2px">${escHtml(names[sp])}</h3>
+      <p style="color:#8A6A50;font-size:${fs}px;margin-bottom:16px">
+        Lavora in ${workCount} sessioni · Riposa in ${restCount} sessioni
+      </p>
+      <div class="task-chips">
+        ${TASK_DEFS.map((td, ti) => {
+          const done = sessData.some(s => s.myTasks.includes(ti));
+          const session = sessData.find(s => s.myTasks.includes(ti));
+          return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:20px;
+            background:${done ? TASK_COLORS[ti] + '22' : '#F0E8DC'};
+            color:${done ? TASK_COLORS[ti] : '#B0A090'};
+            font-weight:700;font-size:${fs}px;
+            border:1px solid ${done ? TASK_COLORS[ti] + '55' : '#E0D4C8'}">
+            ${done ? '✓' : '○'} ${escHtml(tasks[ti])} ${session ? `(S.${session.num})` : ''}
+          </span>`;
+        }).join('')}
+      </div>
+      <div class="session-grid">
+        ${sessData.map(s => {
+          const myTasks = s.myTasks;
+          const hasWork = myTasks.length > 0;
+          const primaryTask = myTasks[0] ?? null;
+          const col = primaryTask !== null ? TASK_COLORS[primaryTask] : null;
+          return `<div class="session-card"
+            style="background:${!hasWork ? '#FAF6EF' : col + '12'};border-color:${!hasWork ? '#E8DDD0' : col + '44'}">
+            <div class="sc-head">
+              <span class="sc-num" style="font-size:${fs - 1}px">Sessione ${s.num}</span>
+              <span class="sc-day" style="font-size:${fs - 2}px">${s.dayName.slice(0, 3)}</span>
+            </div>
+            <div class="sc-date" style="font-size:${fs - 1}px">${fmtDate(s.date)}</div>
+            ${!hasWork
+              ? `<span class="sc-rest" style="font-size:${fs}px">Riposo 😴</span>`
+              : myTasks.map(ti =>
+                  `<div style="font-size:${fs + 1}px;font-weight:700;color:${TASK_COLORS[ti]}">${escHtml(effTasks()[ti])}${ti===7?' 🔗':''}</div>`
+                ).join('')
+            }
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+// ─── GUIDA ───────────────────────────────────────────────────────────────────
+function showGuide() {
+  const existing = document.getElementById('guide-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'guide-overlay';
+  overlay.className = 'guide-overlay';
+  overlay.innerHTML = `
+    <div class="guide-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h2 style="font-size:20px;color:#2C1A0E">❓ Come funziona l'app</h2>
+        <button onclick="document.getElementById('guide-overlay').remove()"
+          style="background:none;border:none;font-size:26px;cursor:pointer;color:#8A6A50;line-height:1">✕</button>
+      </div>
+
+      <div class="guide-section">
+        <h3>🔄 Rotazione automatica equa</h3>
+        <p>Il programma assegna i compiti in modo che <strong>tutti lavorino un numero simile di volte</strong>. Chi ha riposato più a lungo ha la priorità. Si evita inoltre che la stessa persona faccia lo stesso compito due volte di seguito.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>📅 Sessioni settimanali</h3>
+        <ul>
+          <li><strong>Primo giorno (configurabile):</strong> 7 lavoratori — 6 compiti individuali + Stracci abbinato al Bagno</li>
+          <li><strong>Secondo giorno (configurabile):</strong> 9 lavoratori — 6 compiti + 2 persone per Sala&amp;Stanze + Stracci abbinato</li>
+          <li>Chi non lavora quel giorno <em>riposa</em> e viene messo in cima alla lista la volta successiva</li>
+          <li>I giorni si scelgono nel primo step della configurazione (es. Mercoledì + Domenica)</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>🔗 Compiti abbinati</h3>
+        <ul>
+          <li><strong>Primo giorno:</strong> chi lava il <em>Bagno</em> (task 4) lava anche gli <em>Stracci</em> — stesso turno, stessa persona</li>
+          <li><strong>Secondo giorno:</strong> uno dei 2 di <em>Sala&amp;Stanze</em> lava anche gli <em>Stracci</em> — si sceglie chi ne ha fatto meno</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>⚠️ Vincoli speciali (configurabili)</h3>
+        <ul>
+          <li><strong>Coppia mai insieme:</strong> nella schermata <em>Compiti</em> puoi scegliere 2 persone che non lavoreranno mai nello stesso giorno</li>
+          <li><strong>Compiti esclusi:</strong> per ogni persona puoi escludere uno o più compiti che non dovrà mai svolgere (tocca il compito per barrarlo)</li>
+        </ul>
+        <p style="margin-top:6px;font-size:12px;color:#B0A090">
+          Questi vincoli vengono salvati e applicati automaticamente ogni volta che si genera il piano.
+        </p>
+      </div>
+
+      <div class="guide-section">
+        <h3>📅 Gestire le date (altri gruppi)</h3>
+        <ul>
+          <li>Nella schermata <strong>"Seleziona le TUE sessioni"</strong> puoi deselezionare le date in cui tocca ad altri gruppi</li>
+          <li>Le date deselezionate non compaiono nel piano e non contano come turno per nessuno</li>
+          <li>Puoi cambiare le selezioni e rigenerare il piano in qualsiasi momento con <strong>"✏️ Modifica"</strong></li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>📊 Esporta il piano</h3>
+        <ul>
+          <li><strong>📥 PDF</strong> — scarica il file piano_pulizie.pdf sul dispositivo</li>
+          <li><strong>📊 Excel</strong> — scarica il file .xlsx per aprirlo con Excel o Fogli Google</li>
+          <li><strong>👤 Per Persona</strong> — visualizza i turni di ogni singola persona</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>💾 Salva e riusa i nomi</h3>
+        <ul>
+          <li><strong>📤 Esporta Nomi</strong> — nella schermata <em>Nomi</em>, salva la lista delle persone come file <code>nomi_pulizie.json</code> (condivisibile via WhatsApp, Drive, ecc.)</li>
+          <li><strong>📥 Importa Nomi</strong> — carica un file precedentemente esportato per ripopolare automaticamente tutti i nomi</li>
+          <li>Utile quando si reinstalla l'app o si configura un nuovo ciclo: basta importare il file e i nomi sono già pronti</li>
+        </ul>
+      </div>
+
+      <div style="background:#E8F5E9;border-radius:12px;padding:16px;margin-top:16px">
+        <p style="font-size:14px;color:#2C1A0E;font-weight:600;margin-bottom:8px">📞 Hai bisogno di aiuto?</p>
+        <p style="font-size:13px;color:#444;line-height:1.6">
+          Se riscontri dei problemi nell'uso dell'App o vorresti fossero aggiunte delle funzionalità
+          puoi mandarmi un messaggio su WhatsApp a questo numero <strong>3289696744</strong>,
+          sarà un piacere soddisfare le tue esigenze!
+        </p>
+      </div>
+
+      <div style="text-align:center;margin-top:8px">
+        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 3.4</p>
+        <button onclick="document.getElementById('guide-overlay').remove()"
+          class="btn-primary">Ho capito ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Chiudi anche toccando lo sfondo
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ─── DATE TOGGLE (usato inline dagli onclick) ─────────────────────────────────
+function toggleDate(ds) {
+  const idx = state.excludedDates.indexOf(ds);
+  const wasExcluded = idx >= 0;
+  if (wasExcluded) state.excludedDates.splice(idx, 1);
+  else state.excludedDates.push(ds);
+  const nowExcluded = !wasExcluded;
+
+  // Aggiorna UI senza re-render completo
+  const btn = document.getElementById('date-btn-' + ds);
+  const row = document.getElementById('date-row-' + ds);
+  if (btn) {
+    btn.className = 'date-toggle ' + (nowExcluded ? 'excluded' : 'included');
+    btn.textContent = nowExcluded ? '○ Altro gruppo' : '✓ Nostro turno';
+  }
+  if (row) {
+    row.className = 'date-row ' + (nowExcluded ? 'excluded' : 'included');
+    const label = row.querySelector('span');
+    if (label) label.style.color = nowExcluded ? '#B0A090' : '#2C1A0E';
+  }
+  // Aggiorna contatore
+  const pool = getDatePool(state.startDate, state.numWeeks);
+  const selected = pool.filter(d => !state.excludedDates.includes(dateToStr(d))).length;
+  const counter = document.getElementById('date-counter');
+  if (counter) counter.textContent = selected;
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
+function attachEvents() {
+  on("btn-start",        () => goto(1));
+  on("btn-guide-landing",showGuide);
+  on("btn-guide-result", showGuide);
+  on("btn-back0",        () => goto(0));
+  on("btn-to-dates",     () => { saveStep1(); goto(1.5); });
+  on("btn-back-dates",   () => goto(1));
+  on("btn-to-names",     () => { saveState(); goto(2); });
+  on("btn-back-names",   () => goto(1.5));
+  on("btn-export-names", exportNames);
+  on("btn-import-names", () => { const el = document.getElementById('import-names-input'); if (el) el.click(); });
+  const importEl = document.getElementById('import-names-input');
+  if (importEl) importEl.addEventListener('change', handleImportNames);
+  on("btn-to-tasks",     () => { saveNames(); goto(2.5); });
+  on("btn-back-tasks",   () => goto(2));
+  on("btn-generate",     () => { saveTasks(); generate(); });
+  on("btn-back3",        () => goto(2.5));
+  on("btn-edit",         () => goto(0));
+  on("btn-excel",        exportXLSX);
+  on("btn-pdf",          downloadPDF);
+  on("btn-img",          exportImage);
+  on("btn-html",         exportHTML);
+  on("vt-table",         () => { state.view = "table";   render(); });
+  on("vt-persona",       () => { state.view = "persona"; render(); });
+  on("btn-tbl-prev", () => { if (state.tablePage > 0) { state.tablePage--; render(); } });
+  on("btn-tbl-next", () => { const total = Math.ceil(state.schedule.length / 2); if (state.tablePage < total - 1) { state.tablePage++; render(); } });
+
+  on("btn-font-minus", () => {
+    if (state.fontSize > 8) {
+      state.fontSize--;
+      const el = document.getElementById("font-size-display");
+      if (el) el.textContent = state.fontSize + "px";
+      const tw = document.querySelector(".table-wrap");
+      if (tw) tw.style.fontSize = state.fontSize + "px";
+    }
+  });
+  on("btn-font-plus", () => {
+    if (state.fontSize < 16) {
+      state.fontSize++;
+      const el = document.getElementById("font-size-display");
+      if (el) el.textContent = state.fontSize + "px";
+      const tw = document.querySelector(".table-wrap");
+      if (tw) tw.style.fontSize = state.fontSize + "px";
+    }
+  });
+
+  on("btn-np-minus", () => {
+    if (state.nPeople > 10) {
+      state.nPeople--;
+      const el = document.getElementById("np-val");
+      if (el) el.textContent = state.nPeople;
+    }
+  });
+  on("btn-np-plus", () => {
+    if (state.nPeople < 30) {
+      state.nPeople++;
+      const el = document.getElementById("np-val");
+      if (el) el.textContent = state.nPeople;
+    }
+  });
+
+  document.querySelectorAll(".name-input").forEach(el =>
+    el.addEventListener("input", e => {
+      const pos = e.target.selectionStart;
+      const upper = e.target.value.toUpperCase();
+      e.target.value = upper;
+      try { e.target.setSelectionRange(pos, pos); } catch(x) {}
+      state.names[+e.target.dataset.idx] = upper;
+    })
+  );
+  document.querySelectorAll(".task-input").forEach(el =>
+    el.addEventListener("input", e => state.tasks[+e.target.dataset.idx] = e.target.value));
+  document.querySelectorAll(".person-pill").forEach(el =>
+    el.addEventListener("click", e => { state.selPerson = +e.currentTarget.dataset.person; render(); }));
+}
+
+function on(id, fn) { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); }
+function goto(s) {
+  state.step = s;
+  history.pushState({ step: s }, "");
+  render();
+  window.scrollTo(0, 0);
+}
+
+function saveStep1() {
+  const d = document.getElementById("date-input");
+  if (d) state.startDate = d.value;
+  const w = document.getElementById("weeks-input");
+  if (w) state.numWeeks = +w.value;
+  const d1 = document.getElementById("day1-input");
+  if (d1) state.day1 = parseInt(d1.value);
+  const d2 = document.getElementById("day2-input");
+  if (d2) state.day2 = parseInt(d2.value);
+  // Resetta le date escluse se i giorni cambiano
+  state.excludedDates = [];
+  saveState();
+}
+function saveNames() {
+  document.querySelectorAll(".name-input").forEach(el => {
+    const v = el.value.toUpperCase();
+    state.names[+el.dataset.idx] = (v.trim() === 'UNDEFINED') ? '' : v;
+  });
+  saveState();
+}
+function saveTasks() {
+  document.querySelectorAll(".task-input").forEach(el => state.tasks[+el.dataset.idx] = el.value);
+  saveState();
+}
+function saveConstraints() {
+  const ntRows = document.querySelectorAll('.nt-row');
+  if (ntRows.length > 0) {
+    state.neverTogether = Array.from(ntRows).map(row => {
+      const [selA, selB] = row.querySelectorAll('select');
+      return [parseInt(selA.value), parseInt(selB.value)];
+    });
+  }
+  const atRows = document.querySelectorAll('.at-row');
+  if (atRows.length > 0) {
+    state.alwaysTogether = Array.from(atRows).map(row => {
+      const [selA, selB] = row.querySelectorAll('select');
+      return [parseInt(selA.value), parseInt(selB.value)];
+    });
+  }
+  saveState();
+}
+function addNTPair() {
+  saveConstraints();
+  state.neverTogether.push([-1, -1]);
+  saveState();
+  render();
+}
+function removeNTPair(pi) {
+  saveConstraints();
+  state.neverTogether.splice(pi, 1);
+  if (state.neverTogether.length === 0) state.neverTogether = [[-1, -1]];
+  saveState();
+  render();
+}
+function addATPair() {
+  saveConstraints();
+  state.alwaysTogether.push([-1, -1]);
+  saveState();
+  render();
+}
+function removeATPair(pi) {
+  saveConstraints();
+  state.alwaysTogether.splice(pi, 1);
+  if (state.alwaysTogether.length === 0) state.alwaysTogether = [[-1, -1]];
+  saveState();
+  render();
+}
+function toggleExclusion(pi, ti) {
+  if (!state.taskExclusions[pi]) state.taskExclusions[pi] = [];
+  const idx = state.taskExclusions[pi].indexOf(ti);
+  if (idx >= 0) state.taskExclusions[pi].splice(idx, 1);
+  else state.taskExclusions[pi].push(ti);
+  saveState();
+  // Aggiorna solo il chip interessato senza re-render completo
+  const chips = document.querySelectorAll(`button.chip-task[onclick="toggleExclusion(${pi},${ti})"]`);
+  chips.forEach(chip => {
+    const isExcl = (state.taskExclusions[pi]||[]).includes(ti);
+    chip.className = 'chip-task' + (isExcl ? ' chip-excluded' : '');
+  });
+}
+function generate() {
+  saveTasks();
+  saveConstraints();
+  // Verifica conflitti tra "mai insieme" e "sempre insieme"
+  const ntValid = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
+  const atValid = state.alwaysTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
+  for (const [a, b] of ntValid) {
+    for (const [c, d] of atValid) {
+      if ((a === c && b === d) || (a === d && b === c)) {
+        const nm = effNames();
+        alert(`Conflitto nei vincoli: la coppia "${nm[a]} – ${nm[b]}" è marcata sia come "mai insieme" sia come "sempre insieme". Correggi prima di generare.`);
+        return;
+      }
+    }
+  }
+  // Verifica gruppo "sempre insieme" non troppo grande
+  const N = state.nPeople;
+  const par = Array.from({ length: N }, (_, i) => i);
+  const fnd = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  for (const [a, b] of atValid) { if (a < N && b < N) { const ra = fnd(a), rb = fnd(b); if (ra !== rb) par[ra] = rb; } }
+  const sizes = {};
+  for (let i = 0; i < N; i++) { const r = fnd(i); sizes[r] = (sizes[r] || 0) + 1; }
+  const maxGroup = Math.max(...Object.values(sizes), 1);
+  if (maxGroup > 6) {
+    alert(`Un gruppo "sempre insieme" ha ${maxGroup} persone, ma il mercoledì lavorano solo 6 persone. Riduci il gruppo prima di generare.`);
+    return;
+  }
+  const pool = getDatePool(state.startDate, state.numWeeks);
+  const dates = pool.filter(d => !state.excludedDates.includes(dateToStr(d)));
+  if (dates.length === 0) { alert("Nessuna data selezionata. Torna indietro e seleziona almeno una sessione."); return; }
+  state.schedule = buildSchedule(state.nPeople, effNames(), dates);
+  saveState();
+  goto(3);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ─── HELPER: condividi file (Android Capacitor) / scarica (browser desktop) ──
+async function shareOrDownload(blob, filename) {
+  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+    try {
+      // Blob → base64 (in chunks per evitare stack overflow su file grandi)
+      const arrayBuffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunk = 8192;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const base64 = btoa(binary);
+
+      // Scrivi nella cache del dispositivo (FileProvider già configurato nel manifest)
+      const Filesystem = window.Capacitor.Plugins.Filesystem;
+      const { uri } = await Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: 'CACHE',
+        recursive: false
+      });
+
+      // Condividi tramite menu nativo Android (Drive, WhatsApp, Files, ecc.)
+      const Share = window.Capacitor.Plugins.Share;
+      await Share.share({
+        title: 'Piano di Pulizie',
+        files: [uri],
+        dialogTitle: 'Salva o condividi'
+      });
+    } catch (e) {
+      if (e && (e.message || '').toLowerCase().includes('cancel')) return;
+      alert('Errore condivisione: ' + (e.message || JSON.stringify(e)));
+    }
+  } else {
+    // iOS Safari / Chrome Android: Web Share API con file (iOS 15.1+)
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename)] })) {
+      try {
+        await navigator.share({
+          title: 'Piano di Pulizie',
+          files: [new File([blob], filename, { type: blob.type })],
+        });
+        return;
+      } catch (e) {
+        if (e && (e.message || '').toLowerCase().includes('cancel')) return;
+        // Se la Web Share fallisce, scende al download classico
+      }
+    }
+    // Browser desktop: download classico con <a>
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+}
+
+// ─── EXPORT EXCEL ────────────────────────────────────────────────────────────
+async function exportXLSX() {
+  if (!window.XLSX) { alert("Libreria Excel non disponibile offline."); return; }
+  const names = effNames(), tasks = effTasks(), sch = state.schedule;
+  const wb = XLSX.utils.book_new();
+  const header = ["Compito", ...sch.map(s => `${s.dayName} ${fmtDate(s.date)}`)];
+  const rows = TASK_DEFS.map((td, ti) => {
+    const row = [tasks[ti]];
+    sch.forEach(s => {
+      if (!s.isSunday && td.sunOnly) { row.push("—"); return; }
+      const persons = (s.assignments[ti] || []).map(pi => names[pi]);
+      let cell = persons.length ? persons.join(" + ") : "—";
+      row.push(cell);
+    });
+    return row;
+  });
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws["!cols"] = [{ wch: 34 }, ...sch.map(() => ({ wch: 20 }))];
+  XLSX.utils.book_append_sheet(wb, ws, "Piano Pulizie");
+
+  const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  await shareOrDownload(blob, 'piano_pulizie.xlsx');
+}
+
+// ─── DOWNLOAD PDF (jsPDF + autotable) ────────────────────────────────────────
+async function downloadPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert("Libreria PDF non disponibile. Controlla la connessione internet e riprova.");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const names = effNames(), tasks = effTasks(), sch = state.schedule;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+  const PAGE_W = 148;
+
+  // Converte colore hex in [r,g,b]
+  function hexToRgb(hex) {
+    return [
+      parseInt(hex.slice(1,3), 16),
+      parseInt(hex.slice(3,5), 16),
+      parseInt(hex.slice(5,7), 16)
+    ];
+  }
+  // Sfondo tenue: 13% del colore su bianco
+  function hexToRgbLight(hex) {
+    const [r,g,b] = hexToRgb(hex);
+    const t = 0.13;
+    return [Math.round(255-(255-r)*t), Math.round(255-(255-g)*t), Math.round(255-(255-b)*t)];
+  }
+
+  // PDF paginato: 2 sessioni per pagina
+  const SESSIONS_PER_PAGE = 2;
+
+  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  for (let pageIdx = 0; pageIdx < sch.length; pageIdx += SESSIONS_PER_PAGE) {
+    const pageSch = sch.slice(pageIdx, pageIdx + SESSIONS_PER_PAGE);
+    if (pageIdx > 0) doc.addPage();
+
+    // Titolo pagina
+    doc.setFontSize(11);
+    doc.setTextColor(44, 26, 14);
+    doc.text('Piano di Pulizie', PAGE_W / 2, 8, { align: 'center' });
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 100);
+    const pageLabel = pageSch.map(s => `${s.dayName} ${fmtDate(s.date)}`).join(' — ');
+    doc.text(`${state.nPeople} persone  |  ${pageLabel}`, PAGE_W / 2, 13, { align: 'center' });
+
+    // Intestazioni colonne
+    const head = [['Compito', ...pageSch.map(s => `${s.dayName}\n${s.date.getDate()} ${MESI_IT[s.date.getMonth()]}`)]];
+
+    // Corpo tabella
+    const body = TASK_DEFS.map((td, ti) => {
+      return [
+        tasks[ti],
+        ...pageSch.map(s => {
+          if (!s.isSunday && td.sunOnly) return '—';
+          const persons = (s.assignments[ti] || []).map(pi => names[pi]);
+          if (!persons.length) return '—';
+          return persons.join('\n');
+        })
+      ];
+    });
+
+    const marginLR = 8;
+    const taskColW = 38;
+    const nSes     = pageSch.length;
+    const sesColW  = Math.floor((PAGE_W - 2 * marginLR - taskColW) / nSes);
+    const colStyles = { 0: { cellWidth: taskColW, fontStyle: 'bold', halign: 'left' } };
+    for (let ci = 1; ci <= nSes; ci++) colStyles[ci] = { cellWidth: sesColW, halign: 'center' };
+
+    doc.autoTable({
+      head, body, startY: 16,
+      styles: { fontSize: 9, cellPadding: [2, 3], valign: 'middle', overflow: 'linebreak' },
+      headStyles: { fillColor: [44, 26, 14], textColor: [200, 168, 130], fontSize: 9, halign: 'center' },
+      columnStyles: colStyles,
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const col = TASK_COLORS[data.row.index] || '#333333';
+          data.cell.styles.textColor = hexToRgb(col);
+          data.cell.styles.fillColor = hexToRgbLight(col);
+          if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
+        }
+      },
+      margin: { top: 16, left: marginLR, right: marginLR },
+    });
+  }
+
+  const blob = doc.output('blob');
+  await shareOrDownload(blob, 'piano_pulizie.pdf');
+}
+
+// ─── EXPORT IMMAGINE (html2canvas) ───────────────────────────────────────────
+async function exportImage() {
+  if (!window.html2canvas) {
+    alert("Libreria immagine non disponibile. Controlla la connessione internet e riprova.");
+    return;
+  }
+  const table = document.querySelector('.table-wrap table');
+  if (!table) { alert("Nessuna tabella da esportare."); return; }
+
+  try {
+    const canvas = await html2canvas(table, {
+      scale: 2,
+      backgroundColor: '#FAF6EF',
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      width: table.scrollWidth,
+      height: table.scrollHeight,
+      windowWidth: table.scrollWidth,
+    });
+    canvas.toBlob(async (blob) => {
+      await shareOrDownload(blob, 'piano_pulizie.png');
+    }, 'image/png');
+  } catch(e) {
+    alert('Errore durante la creazione dell\'immagine: ' + e.message);
+  }
+}
+
+// ─── EXPORT HTML TABELLA COLORATA ────────────────────────────────────────────
+async function exportHTML() {
+  const names = effNames(), tasks = effTasks(), sch = state.schedule;
+  const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  // Intestazione colonne sessioni
+  const sesHeaders = sch.map(s =>
+    `<th style="background:#2C1A0E;color:#C8A882;padding:6px 8px;text-align:center;white-space:nowrap">
+      ${s.dayName}<br>${s.date.getDate()} ${MESI_IT[s.date.getMonth()]}
+    </th>`
+  ).join('');
+
+  // Righe compiti
+  const rows = TASK_DEFS.map((td, ti) => {
+    const col = TASK_COLORS[ti] || '#333333';
+    const bgHex = col + '22';
+    const cells = sch.map(s => {
+      if (!s.isSunday && td.sunOnly) return `<td style="background:${bgHex};color:${col};padding:5px 8px;text-align:center">—</td>`;
+      const persons = (s.assignments[ti] || []).map(pi => names[pi]);
+      const txt = persons.length ? persons.join('<br>') : '—';
+      return `<td style="background:${bgHex};color:${col};padding:5px 8px;text-align:center">${txt}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="background:${bgHex};color:${col};padding:5px 8px;font-weight:bold;white-space:nowrap">${tasks[ti]}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="UTF-8"><title>Piano di Pulizie</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 16px; background: #FAF6EF; }
+  h2 { color: #2C1A0E; margin-bottom: 4px; }
+  p { color: #8A6A50; font-size: 12px; margin-top: 0; }
+  table { border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #E8DDD0; }
+</style>
+</head>
+<body>
+<h2>Piano di Pulizie</h2>
+<p>${state.nPeople} persone &middot; ${sch.length} sessioni &middot; dal ${fmtDate(sch[0].date)}</p>
+<table>
+  <thead>
+    <tr>
+      <th style="background:#2C1A0E;color:#C8A882;padding:6px 8px;text-align:left">Compito</th>
+      ${sesHeaders}
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  await shareOrDownload(blob, 'piano_pulizie.html');
+}
+
+// ─── EXPORT / IMPORT NOMI ────────────────────────────────────────────────────
+async function exportNames() {
+  saveNames();
+  const data = JSON.stringify({ nPeople: state.nPeople, names: state.names }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  await shareOrDownload(blob, 'nomi_pulizie.json');
+}
+
+function handleImportNames(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.names)) { alert('File non valido.'); return; }
+      data.names.forEach((n, i) => {
+        if (i >= 30) return;
+        const s = String(n || '').toUpperCase();
+        state.names[i] = (s.trim() === 'UNDEFINED') ? '' : s;
+      });
+      if (data.nPeople >= 10 && data.nPeople <= 30) state.nPeople = data.nPeople;
+      saveState();
+      render();
+    } catch(err) { alert('Errore lettura file: ' + err.message); }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ─── PWA INSTALL ─────────────────────────────────────────────────────────────
+let deferredPrompt;
+const banner = document.getElementById("install-banner");
+const iosBanner = document.getElementById("ios-hint");
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredPrompt = e; banner.classList.add("show"); });
+document.getElementById("install-btn").addEventListener("click", async () => {
+  banner.classList.remove("show");
+  if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; }
+});
+document.getElementById("install-close").addEventListener("click", () => banner.classList.remove("show"));
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (isIOS && !window.navigator.standalone) setTimeout(() => iosBanner.classList.add("show"), 2000);
+document.getElementById("ios-close").addEventListener("click", () => iosBanner.classList.remove("show"));
+
+// ─── HARDWARE BACK BUTTON (Android) ──────────────────────────────────────────
+window.addEventListener("popstate", () => {
+  const prevMap = { 0: 0, 1: 0, 1.5: 1, 2: 1.5, 2.5: 2, 3: 2.5 };
+  const prev = prevMap[state.step];
+  if (prev !== undefined && prev !== state.step) {
+    state.step = prev;
+    render();
+    window.scrollTo(0, 0);
+  }
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+// In Capacitor (APK) il SW e' inutile e crea problemi di cache stale.
+// In browser PWA, registriamo comunque il sw.js che ora e' self-destruct: si disinstalla
+// e ripulisce tutte le cache, cosi' i prossimi update applicano subito senza intermediari.
+if ("serviceWorker" in navigator && !window.Capacitor) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+} else if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+  if (window.caches) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+}
+loadState();
+history.replaceState({ step: 0 }, "");
+render();
+</script>
+</body>
+</html>
