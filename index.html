@@ -951,9 +951,9 @@ function showGuide() {
       <div class="guide-section">
         <h3>💾 Salva e riusa i nomi</h3>
         <ul>
-          <li><strong>📤 Esporta Nomi</strong> — nella schermata <em>Nomi</em>, salva la lista delle persone come file <code>nomi_pulizie.json</code> (condivisibile via WhatsApp, Drive, ecc.)</li>
-          <li><strong>📥 Importa Nomi</strong> — carica un file precedentemente esportato per ripopolare automaticamente tutti i nomi</li>
-          <li>Utile quando si reinstalla l'app o si configura un nuovo ciclo: basta importare il file e i nomi sono già pronti</li>
+          <li><strong>📤 Esporta Nomi</strong> — nella schermata <em>Nomi</em>, salva nel file <code>nomi_pulizie.json</code> lista persone, vincoli speciali (mai/sempre insieme) e compiti esclusi per persona</li>
+          <li><strong>📥 Importa Nomi</strong> — carica un file precedentemente esportato per ripopolare automaticamente nomi, vincoli e compiti esclusi</li>
+          <li>Utile quando si reinstalla l'app o si configura un nuovo ciclo: basta importare il file e tutto è già pronto</li>
         </ul>
       </div>
 
@@ -967,7 +967,7 @@ function showGuide() {
       </div>
 
       <div style="text-align:center;margin-top:8px">
-        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 3.4</p>
+        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 3.5</p>
         <button onclick="document.getElementById('guide-overlay').remove()"
           class="btn-primary">Ho capito ✓</button>
       </div>
@@ -1469,7 +1469,13 @@ async function exportHTML() {
 // ─── EXPORT / IMPORT NOMI ────────────────────────────────────────────────────
 async function exportNames() {
   saveNames();
-  const data = JSON.stringify({ nPeople: state.nPeople, names: state.names }, null, 2);
+  const data = JSON.stringify({
+    nPeople: state.nPeople,
+    names: state.names,
+    neverTogether: state.neverTogether,
+    alwaysTogether: state.alwaysTogether,
+    taskExclusions: state.taskExclusions
+  }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   await shareOrDownload(blob, 'nomi_pulizie.json');
 }
@@ -1488,6 +1494,15 @@ function handleImportNames(event) {
         state.names[i] = (s.trim() === 'UNDEFINED') ? '' : s;
       });
       if (data.nPeople >= 10 && data.nPeople <= 30) state.nPeople = data.nPeople;
+      if (Array.isArray(data.neverTogether) && data.neverTogether.length > 0 && Array.isArray(data.neverTogether[0])) {
+        state.neverTogether = data.neverTogether;
+      }
+      if (Array.isArray(data.alwaysTogether) && data.alwaysTogether.length > 0 && Array.isArray(data.alwaysTogether[0])) {
+        state.alwaysTogether = data.alwaysTogether;
+      }
+      if (data.taskExclusions && typeof data.taskExclusions === 'object' && !Array.isArray(data.taskExclusions)) {
+        state.taskExclusions = data.taskExclusions;
+      }
       saveState();
       render();
     } catch(err) { alert('Errore lettura file: ' + err.message); }
