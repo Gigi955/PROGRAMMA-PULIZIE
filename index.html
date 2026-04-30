@@ -967,7 +967,7 @@ function showGuide() {
       </div>
 
       <div style="text-align:center;margin-top:8px">
-        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 3.2</p>
+        <p style="font-size:11px;color:#B0A090;margin-bottom:10px">Versione 3.3</p>
         <button onclick="document.getElementById('guide-overlay').remove()"
           class="btn-primary">Ho capito ✓</button>
       </div>
@@ -1522,7 +1522,15 @@ window.addEventListener("popstate", () => {
 });
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// In Capacitor (APK) il SW e' inutile e crea problemi di cache stale.
+// In browser PWA, registriamo comunque il sw.js che ora e' self-destruct: si disinstalla
+// e ripulisce tutte le cache, cosi' i prossimi update applicano subito senza intermediari.
+if ("serviceWorker" in navigator && !window.Capacitor) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+} else if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+  if (window.caches) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+}
 loadState();
 history.replaceState({ step: 0 }, "");
 render();
