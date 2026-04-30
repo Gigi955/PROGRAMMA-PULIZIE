@@ -284,7 +284,12 @@ function loadState() {
     const s = JSON.parse(localStorage.getItem("pulizie-v2"));
     if (!s) return;
     if (Array.isArray(s.names)) {
-      state.names = Array(30).fill("").map((_, i) => s.names[i] || "");
+      state.names = Array(30).fill("").map((_, i) => {
+        const v = s.names[i];
+        if (typeof v !== 'string') return "";
+        if (v.trim().toLowerCase() === 'undefined') return "";
+        return v;
+      });
     }
     if (s.nPeople >= 10 && s.nPeople <= 30) state.nPeople = s.nPeople;
     if (Array.isArray(s.tasks) && s.tasks.length === NT) state.tasks = s.tasks;
@@ -657,7 +662,7 @@ function renderNamesForm() {
     rows.push(`
       <div>
         <label class="label">${i + 1}.</label>
-        <input class="input name-input" data-idx="${i}" value="${escHtml(state.names[i])}"
+        <input class="input name-input" data-idx="${i}" value="${escHtml(state.names[i] || '')}"
           placeholder="Persona ${i + 1}" style="text-transform:uppercase">
       </div>`);
   }
@@ -1099,7 +1104,8 @@ function saveStep1() {
 }
 function saveNames() {
   document.querySelectorAll(".name-input").forEach(el => {
-    state.names[+el.dataset.idx] = el.value.toUpperCase();
+    const v = el.value.toUpperCase();
+    state.names[+el.dataset.idx] = (v.trim() === 'UNDEFINED') ? '' : v;
   });
   saveState();
 }
@@ -1476,7 +1482,11 @@ function handleImportNames(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data.names)) { alert('File non valido.'); return; }
-      data.names.forEach((n, i) => { if (i < 30) state.names[i] = String(n || '').toUpperCase(); });
+      data.names.forEach((n, i) => {
+        if (i >= 30) return;
+        const s = String(n || '').toUpperCase();
+        state.names[i] = (s.trim() === 'UNDEFINED') ? '' : s;
+      });
       if (data.nPeople >= 10 && data.nPeople <= 30) state.nPeople = data.nPeople;
       saveState();
       render();
