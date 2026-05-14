@@ -316,6 +316,21 @@ function loadState() {
   } catch(e) {}
 }
 
+// Ripulisce le strutture dipendenti dall'indice persona (taskExclusions, vincoli)
+// rimuovendo voci che puntano a indici fuori range rispetto a state.nPeople.
+// Va chiamata ogni volta che nPeople diminuisce o cambia gruppo.
+function pruneStaleByNPeople() {
+  const N = state.nPeople;
+  Object.keys(state.taskExclusions).forEach(k => {
+    if (parseInt(k, 10) >= N) delete state.taskExclusions[k];
+  });
+  const fix = arr => arr.map(([a, b]) => [a >= N ? -1 : a, b >= N ? -1 : b]);
+  state.neverTogether  = fix(state.neverTogether);
+  state.alwaysTogether = fix(state.alwaysTogether);
+  if (!state.neverTogether.length)  state.neverTogether  = [[-1, -1]];
+  if (!state.alwaysTogether.length) state.alwaysTogether = [[-1, -1]];
+}
+
 function effNames() {
   return state.names.slice(0, state.nPeople).map((n, i) => n.trim() || `Persona ${i + 1}`);
 }
@@ -1054,6 +1069,10 @@ function attachEvents() {
   on("btn-np-minus", () => {
     if (state.nPeople > 10) {
       state.nPeople--;
+      // Rimuovi voci di esclusioni/coppie che ora puntano a un indice fuori range,
+      // così non vengono trascinate negli export futuri.
+      pruneStaleByNPeople();
+      saveState();
       const el = document.getElementById("np-val");
       if (el) el.textContent = state.nPeople;
     }
@@ -1172,6 +1191,9 @@ function toggleExclusion(pi, ti) {
 function generate() {
   saveTasks();
   saveConstraints();
+  // Rete di sicurezza: rimuovi qualsiasi voce che punti a indici >= nPeople
+  // (può accadere se l'utente ha appena ridotto nPeople prima di generare).
+  pruneStaleByNPeople();
   // Verifica conflitti tra "mai insieme" e "sempre insieme"
   const ntValid = state.neverTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
   const atValid = state.alwaysTogether.filter(p => p[0] >= 0 && p[1] >= 0 && p[0] !== p[1]);
@@ -1469,12 +1491,37 @@ async function exportHTML() {
 // ─── EXPORT / IMPORT NOMI ────────────────────────────────────────────────────
 async function exportNames() {
   saveNames();
+  // Sincronizza prima i campi dipendenti dall'indice persona, così non
+  // esportiamo voci "fantasma" relative a un gruppo precedente più grande.
+  pruneStaleByNPeople();
+
+  const N = state.nPeople;
+
+  // taskExclusions: solo indici < N, solo task validi, niente liste vuote.
+  const cleanExclusions = {};
+  Object.entries(state.taskExclusions).forEach(([k, v]) => {
+    const idx = parseInt(k, 10);
+    if (idx >= 0 && idx < N && Array.isArray(v)) {
+      const list = v.filter(ti => Number.isInteger(ti) && ti >= 0 && ti < NT);
+      if (list.length) cleanExclusions[idx] = list;
+    }
+  });
+
+  // Coppie: clamp degli indici fuori range a -1, mantieni almeno una riga di default.
+  const cleanPairs = arr => {
+    const out = arr.map(([a, b]) => [a >= N ? -1 : a, b >= N ? -1 : b]);
+    return out.length ? out : [[-1, -1]];
+  };
+
+  // Nomi: esporto esattamente nPeople voci (le altre sono comunque "" ma evita ambiguità).
+  const cleanNames = state.names.slice(0, N).map(n => String(n || ''));
+
   const data = JSON.stringify({
-    nPeople: state.nPeople,
-    names: state.names,
-    neverTogether: state.neverTogether,
-    alwaysTogether: state.alwaysTogether,
-    taskExclusions: state.taskExclusions
+    nPeople: N,
+    names: cleanNames,
+    neverTogether:  cleanPairs(state.neverTogether),
+    alwaysTogether: cleanPairs(state.alwaysTogether),
+    taskExclusions: cleanExclusions
   }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   await shareOrDownload(blob, 'nomi_pulizie.json');
@@ -1488,12 +1535,24 @@ function handleImportNames(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data.names)) { alert('File non valido.'); return; }
-      data.names.forEach((n, i) => {
-        if (i >= 30) return;
-        const s = String(n || '').toUpperCase();
+
+      // RESET completo dello stato dipendente dal gruppo, PRIMA di applicare i nuovi dati.
+      // Evita che voci del gruppo precedente (nomi a indici alti, esclusioni, vincoli)
+      // sopravvivano se il file importato ne ha meno o non le contiene affatto.
+      state.names          = Array(30).fill("");
+      state.taskExclusions = {};
+      state.neverTogether  = [[-1, -1]];
+      state.alwaysTogether = [[-1, -1]];
+
+      // Nomi: itero sempre fino a 30 in modo che eventuali indici non presenti
+      // nel file restino "" (già garantito dal reset sopra).
+      for (let i = 0; i < 30; i++) {
+        const s = String(data.names[i] || '').toUpperCase();
         state.names[i] = (s.trim() === 'UNDEFINED') ? '' : s;
-      });
+      }
+
       if (data.nPeople >= 10 && data.nPeople <= 30) state.nPeople = data.nPeople;
+
       if (Array.isArray(data.neverTogether) && data.neverTogether.length > 0 && Array.isArray(data.neverTogether[0])) {
         state.neverTogether = data.neverTogether;
       }
@@ -1501,10 +1560,26 @@ function handleImportNames(event) {
         state.alwaysTogether = data.alwaysTogether;
       }
       if (data.taskExclusions && typeof data.taskExclusions === 'object' && !Array.isArray(data.taskExclusions)) {
-        state.taskExclusions = data.taskExclusions;
+        // Sanifica: tieni solo indici validi e taskIdx in range
+        const cleaned = {};
+        Object.entries(data.taskExclusions).forEach(([k, v]) => {
+          const idx = parseInt(k, 10);
+          if (idx >= 0 && idx < state.nPeople && Array.isArray(v)) {
+            const list = v.filter(ti => Number.isInteger(ti) && ti >= 0 && ti < NT);
+            if (list.length) cleaned[idx] = list;
+          }
+        });
+        state.taskExclusions = cleaned;
       }
+
+      // Rete di sicurezza: rimuovi qualsiasi vincolo che punti a indici fuori range
+      pruneStaleByNPeople();
+
       saveState();
       render();
+
+      const exclCount = Object.keys(state.taskExclusions).length;
+      alert(`Gruppo importato: ${state.nPeople} persone, ${exclCount} con compiti esclusi.`);
     } catch(err) { alert('Errore lettura file: ' + err.message); }
     event.target.value = '';
   };
