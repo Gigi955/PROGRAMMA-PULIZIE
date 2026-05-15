@@ -689,7 +689,10 @@ function renderNamesForm() {
       <button class="btn-secondary" id="btn-back-names">‹ Indietro</button>
       <button class="btn-secondary" id="btn-export-names" style="border-color:#8A6A50;color:#8A6A50">📤 Esporta Nomi</button>
       <button class="btn-secondary" id="btn-import-names" style="border-color:#2E7D50;color:#2E7D50">📥 Importa Nomi</button>
-      <input type="file" id="import-names-input" accept=".json" style="display:none">
+      <!-- accept volutamente permissivo: su Android molti file manager (Drive, WhatsApp, Gmail)
+           salvano i .json senza preservare il MIME type "application/json", e il picker li grigia.
+           Validiamo comunque il contenuto in handleImportNames con JSON.parse. -->
+      <input type="file" id="import-names-input" accept="*/*" style="display:none">
     </div>
     <div class="btn-row" style="margin-top:8px">
       <button class="btn-primary" id="btn-to-tasks" style="width:100%">Avanti: Compiti ›</button>
